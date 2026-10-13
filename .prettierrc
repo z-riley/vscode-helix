@@ -2,6 +2,5 @@
   "printWidth": 120,
   "singleQuote": true,
   "trailingComma": "all",
-  "arrowParens": "always",
-  "pluginSearchDirs": ["."]
+  "arrowParens": "always"
 }

@@ -5,27 +5,28 @@ import { Mode } from '../modes_types';
 import { parseKeysExact, parseKeysRegex } from '../parse_keys';
 import { searchBackwardBracket, searchForwardBracket } from '../search_utils';
 import { removeTypeSubscription } from '../type_subscription';
-import { delete_, yank } from './operators';
+import { charUnderCursorIfEmpty, delete_, yank } from './operators';
+import { exec, edit } from '../exec';
 
 export const matchActions: Action[] = [
   // Implemenent jump to bracket
   parseKeysExact(['m', 'm'], [Mode.Normal], () => {
-    vscode.commands.executeCommand('editor.action.jumpToBracket');
+    exec('editor.action.jumpToBracket');
   }),
 
-  parseKeysExact(['m', 'm'], [Mode.Visual], () => {
-    vscode.commands.executeCommand('editor.action.selectToBracket');
+  parseKeysExact(['m', 'm'], [Mode.Select], () => {
+    exec('editor.action.selectToBracket');
   }),
 
   // Delete match
-  parseKeysExact(['d'], [Mode.Normal, Mode.Visual], (helixState, editor) => {
-    const ranges = editor.selections.map((selection) => selection.with());
+  parseKeysExact(['d'], [Mode.Normal, Mode.Select], (helixState, editor) => {
+    const ranges = editor.selections.map((selection) => charUnderCursorIfEmpty(editor.document, selection));
     yank(helixState, editor, ranges, false);
     delete_(editor, ranges, false);
   }),
 
   // edit match
-  parseKeysExact(['c'], [Mode.Normal, Mode.Visual], (helixState, editor) => {
+  parseKeysExact(['c'], [Mode.Normal, Mode.Select], (helixState, editor) => {
     const ranges = editor.selections.map((selection) => selection.with());
     delete_(editor, ranges, false);
     enterInsertMode(helixState);
@@ -35,11 +36,11 @@ export const matchActions: Action[] = [
   }),
 
   // implement match add to selection
-  parseKeysRegex(/^ms(.)$/, /^ms/, [Mode.Normal, Mode.Visual], (helixState, editor, match) => {
+  parseKeysRegex(/^ms(.)$/, /^ms/, [Mode.Normal, Mode.Select], (_helixState, editor, match) => {
     const char = match[1];
     const [startChar, endChar] = getMatchPairs(char);
     // Add char to both ends of each selection
-    editor.edit((editBuilder) => {
+    edit(editor, (editBuilder) => {
       // Add char to both ends of each selection
       editor.selections.forEach((selection) => {
         const start = selection.start;
@@ -51,7 +52,7 @@ export const matchActions: Action[] = [
   }),
 
   // implement match replace to selection
-  parseKeysRegex(/^mr(.)(.)$/, /^mr(.)?/, [Mode.Normal, Mode.Visual], (helixState, editor, match) => {
+  parseKeysRegex(/^mr(.)(.)$/, /^mr(.)?/, [Mode.Normal, Mode.Select], (helixState, editor, match) => {
     const original = match[1];
     const replacement = match[2];
     const [startCharOrig, endCharOrig] = getMatchPairs(original);
@@ -76,7 +77,7 @@ export const matchActions: Action[] = [
     if (forwardPosition === undefined || backwardPosition === undefined) return;
 
     // Add char to both ends of each selection
-    editor.edit((editBuilder) => {
+    edit(editor, (editBuilder) => {
       // Add char to both ends of each selection
       editBuilder.replace(
         new vscode.Range(forwardPosition, forwardPosition.with({ character: forwardPosition.character + 1 })),
@@ -90,7 +91,7 @@ export const matchActions: Action[] = [
   }),
 
   // implement match delete character
-  parseKeysRegex(/^md(.)$/, /^md/, [Mode.Normal, Mode.Visual], (helixState, editor, match) => {
+  parseKeysRegex(/^md(.)$/, /^md/, [Mode.Normal, Mode.Select], (helixState, editor, match) => {
     const char = match[1];
     const [startChar, endChar] = getMatchPairs(char);
     const num = helixState.resolveCount();
@@ -101,7 +102,7 @@ export const matchActions: Action[] = [
     if (forwardPosition === undefined || backwardPosition === undefined) return;
 
     // Add char to both ends of each selection
-    editor.edit((editBuilder) => {
+    edit(editor, (editBuilder) => {
       // Add char to both ends of each selection
       editBuilder.delete(
         new vscode.Range(forwardPosition, forwardPosition.with({ character: forwardPosition.character + 1 })),

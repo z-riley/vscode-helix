@@ -24,11 +24,6 @@ export type ParseOperatorRangeSuccess = {
   linewise: boolean;
 };
 
-export type ParseOperatorSuccess = {
-  kind: 'success';
-  motion: OperatorRange | undefined;
-};
-
 export type OperatorRange = (
   vimState: HelixState,
   keys: string[],

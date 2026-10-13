@@ -5,3 +5,10 @@ src/**
 .gitignore
 tsconfig.json
 tslint.json
+.git
+.github/**
+.tool-versions
+.prettierrc
+.eslintrc.cjs
+build.mjs
+*.vsix

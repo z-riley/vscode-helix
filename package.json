@@ -1,12 +1,12 @@
 {
-  "name": "vscode-helix-emulation",
-  "version": "0.7.0",
-  "displayName": "Helix For VS Code",
+  "name": "helix-emulation",
+  "version": "0.9.0",
+  "displayName": "Helix Emulation",
   "description": "Helix emulation for Visual Studio Code",
-  "publisher": "jasew",
-  "author": "Jason Williams",
+  "publisher": "z-riley",
+  "author": "z-riley",
   "license": "MIT",
-  "homepage": "https://github.com/jasonwilliams/vscode-helix",
+  "homepage": "https://github.com/z-riley/vscode-helix",
   "keywords": [
     "vim",
     "vi",
@@ -14,10 +14,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/jasonwilliams/vscode-helix"
+    "url": "https://github.com/z-riley/vscode-helix"
   },
   "bugs": {
-    "url": "https://github.com/jasonwilliams/vscode-helix/issues"
+    "url": "https://github.com/z-riley/vscode-helix/issues"
   },
   "categories": [
     "Other",
@@ -48,13 +48,29 @@
     "keybindings": [
       {
         "key": "shift+5",
-        "command": "editor.action.selectAll",
-        "when": "editorTextFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.visualMode)"
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "editor.action.selectAll"
+        },
+        "when": "editorTextFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.selectMode)"
       },
       {
         "key": "shift+j",
-        "command": "editor.action.joinLines",
-        "when": "editorTextFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.visualMode)"
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "editor.action.joinLines"
+        },
+        "when": "editorTextFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.selectMode)"
+      },
+      {
+        "key": "tab",
+        "command": "noop",
+        "when": "editorTextFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.selectMode)"
+      },
+      {
+        "key": "shift+tab",
+        "command": "noop",
+        "when": "editorTextFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.selectMode)"
       },
       {
         "key": "Escape",
@@ -69,22 +85,22 @@
       {
         "key": "ctrl+f",
         "command": "extension.helixKeymap.scrollDownPage",
-        "when": "editorTextFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.visualMode)"
+        "when": "editorTextFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.selectMode)"
       },
       {
         "key": "ctrl+b",
         "command": "extension.helixKeymap.scrollUpPage",
-        "when": "editorTextFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.visualMode)"
+        "when": "editorTextFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.selectMode)"
       },
       {
         "key": "ctrl+w",
         "command": "extension.helixKeymap.enterWindowMode",
-        "when": "editorTextFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.visualMode)"
+        "when": "editorTextFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.selectMode)"
       },
       {
         "key": "backspace",
         "command": "extension.helixKeymap.backspaceSearchMode",
-        "when": "editorTextFocus && (extension.helixKeymap.searchMode || extension.helixKeymap.selectMode)"
+        "when": "editorTextFocus && (extension.helixKeymap.searchPromptMode || extension.helixKeymap.selectRegexPromptMode)"
       },
       {
         "key": "backspace",
@@ -94,57 +110,63 @@
       {
         "key": "enter",
         "command": "extension.helixKeymap.exitSearchMode",
-        "when": "editorTextFocus && (extension.helixKeymap.searchMode || extension.helixKeymap.selectMode)"
+        "when": "editorTextFocus && (extension.helixKeymap.searchPromptMode || extension.helixKeymap.selectRegexPromptMode)"
       },
       {
         "key": "up",
         "command": "extension.helixKeymap.previousSearchResult",
-        "when": "editorTextFocus && (extension.helixKeymap.searchMode || extension.helixKeymap.selectMode)"
+        "when": "editorTextFocus && (extension.helixKeymap.searchPromptMode || extension.helixKeymap.selectRegexPromptMode)"
       },
       {
         "key": "down",
         "command": "extension.helixKeymap.nextSearchResult",
-        "when": "editorTextFocus && (extension.helixKeymap.searchMode || extension.helixKeymap.selectMode)"
+        "when": "editorTextFocus && (extension.helixKeymap.searchPromptMode || extension.helixKeymap.selectRegexPromptMode)"
       },
       {
         "key": "alt+o",
-        "command": "editor.action.smartSelect.expand",
-        "when": "editorTextFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.visualMode)"
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "editor.action.smartSelect.expand"
+        },
+        "when": "editorTextFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.selectMode)"
       },
       {
         "key": "alt+i",
-        "command": "editor.action.smartSelect.shrink",
-        "when": "editorTextFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.visualMode)"
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "editor.action.smartSelect.shrink"
+        },
+        "when": "editorTextFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.selectMode)"
       },
       {
         "key": "ctrl+i",
         "command": "workbench.action.navigateForward",
-        "when": "(extension.helixKeymap.normalMode || extension.helixKeymap.visualMode)"
+        "when": "(extension.helixKeymap.normalMode || extension.helixKeymap.selectMode)"
       },
       {
         "key": "ctrl+d",
         "command": "extension.helixKeymap.scrollDownHalfPage",
-        "when": "(extension.helixKeymap.normalMode || extension.helixKeymap.visualMode)"
+        "when": "(extension.helixKeymap.normalMode || extension.helixKeymap.selectMode)"
       },
       {
         "key": "ctrl+u",
         "command": "extension.helixKeymap.scrollUpHalfPage",
-        "when": "(extension.helixKeymap.normalMode || extension.helixKeymap.visualMode)"
+        "when": "(extension.helixKeymap.normalMode || extension.helixKeymap.selectMode)"
       },
       {
         "key": "ctrl+o",
         "command": "workbench.action.navigateBack",
-        "when": "(extension.helixKeymap.normalMode || extension.helixKeymap.visualMode)"
+        "when": "(extension.helixKeymap.normalMode || extension.helixKeymap.selectMode)"
       },
       {
         "key": "ctrl+n",
         "command": "workbench.action.quickOpenSelectNext",
-        "when": "inQuickOpen && (extension.helixKeymap.normalMode || extension.helixKeymap.visualMode)"
+        "when": "inQuickOpen && (extension.helixKeymap.normalMode || extension.helixKeymap.selectMode)"
       },
       {
         "key": "ctrl+p",
         "command": "workbench.action.quickOpenSelectPrevious",
-        "when": "inQuickOpen && (extension.helixKeymap.normalMode || extension.helixKeymap.visualMode)"
+        "when": "inQuickOpen && (extension.helixKeymap.normalMode || extension.helixKeymap.selectMode)"
       },
       {
         "key": "ctrl+o",
@@ -188,108 +210,295 @@
       },
       {
         "key": "alt+k",
-        "command": "editor.action.moveLinesUpAction",
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "editor.action.moveLinesUpAction"
+        },
         "when": "editorTextFocus && !extension.helixKeymap.insertMode"
       },
       {
         "key": "alt+j",
-        "command": "editor.action.moveLinesDownAction",
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "editor.action.moveLinesDownAction"
+        },
         "when": "editorTextFocus && !extension.helixKeymap.insertMode"
       },
       {
         "key": "alt+d",
-        "command": "editor.action.addSelectionToNextFindMatch",
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "editor.action.addSelectionToNextFindMatch"
+        },
         "when": "editorTextFocus && !extension.helixKeymap.insertMode"
       },
       {
         "key": "alt+m",
-        "command": "editor.action.moveSelectionToNextFindMatch",
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "editor.action.moveSelectionToNextFindMatch"
+        },
         "when": "editorTextFocus && !extension.helixKeymap.insertMode"
       },
       {
         "key": "ctrl+v",
         "command": "extension.helixKeymap.clipboardPasteAction",
-        "when": "editorTextFocus && extension.helixKeymap.searchMode"
+        "when": "editorTextFocus && extension.helixKeymap.searchPromptMode"
       },
       {
         "key": "j",
         "command": "list.focusDown",
-        "when": "listFocus && !inputFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.visualMode)"
+        "when": "listFocus && !inputFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.selectMode)"
       },
       {
         "key": "k",
         "command": "list.focusUp",
-        "when": "listFocus && !inputFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.visualMode)"
+        "when": "listFocus && !inputFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.selectMode)"
       },
       {
         "key": "l",
         "command": "list.expand",
-        "when": "listFocus && !inputFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.visualMode)"
+        "when": "listFocus && !inputFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.selectMode)"
       },
       {
         "key": "h",
         "command": "list.collapse",
-        "when": "listFocus && !inputFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.visualMode)"
+        "when": "listFocus && !inputFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.selectMode)"
       },
       {
         "key": "alt+.",
         "command": "extension.helixKeymap.repeatLastMotion",
-        "when": "editorTextFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.visualMode)"
+        "when": "editorTextFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.selectMode)"
       },
       {
         "key": "ctrl+w",
-        "command": "deleteWordLeft",
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "deleteWordLeft"
+        },
         "when": "editorTextFocus && extension.helixKeymap.insertMode"
       },
       {
         "key": "alt+d",
-        "command": "deleteWordRight",
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "deleteWordRight"
+        },
         "when": "editorTextFocus && extension.helixKeymap.insertMode"
       },
       {
         "key": "alt+d",
-        "command": "deleteWordRight",
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "deleteWordRight"
+        },
         "when": "editorTextFocus && extension.helixKeymap.insertMode"
       },
       {
         "key": "ctrl+u",
-        "command": "deleteAllLeft",
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "deleteAllLeft"
+        },
         "when": "editorTextFocus && extension.helixKeymap.insertMode"
       },
       {
         "key": "ctrl+l",
-        "command": "deleteAllRight",
-        "when": "editorTextFocus && extension.helixKeymap.insertMode"
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "deleteAllRight"
+        },
+        "when": "editorTextFocus && (extension.helixKeymap.insertMode || extension.helixKeymap.normalMode)"
       },
       {
         "key": "ctrl+d",
-        "command": "deleteRight",
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "deleteRight"
+        },
         "when": "editorTextFocus && extension.helixKeymap.insertMode"
       },
       {
         "key": "ctrl+h",
-        "command": "deleteLeft",
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "deleteLeft"
+        },
         "when": "editorTextFocus && extension.helixKeymap.insertMode"
       },
       {
         "key": "ctrl+x",
-        "command": "acceptSelectedSuggestion",
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "acceptSelectedSuggestion"
+        },
         "when": "suggestWidgetHasFocusedSuggestion && suggestWidgetVisible && extension.helixKeymap.insertMode"
       },
       {
         "key": "alt+OEM_8",
         "command": "extension.helixKeymap.switchToUppercase",
-        "when": "editorTextFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.visualMode)"
+        "when": "editorTextFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.selectMode)"
+      },
+      {
+        "key": "alt+c",
+        "command": "extension.helixKeymap.copySelectionsToPrevLine",
+        "when": "editorTextFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.selectMode)"
       },
       {
         "key": "ctrl+a",
         "command": "extension.helixKeymap.increment",
-        "when": "editorTextFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.visualMode)"
+        "when": "editorTextFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.selectMode)"
       },
       {
         "key": "ctrl+x",
         "command": "extension.helixKeymap.decrement",
-        "when": "editorTextFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.visualMode)"
+        "when": "editorTextFocus && (extension.helixKeymap.normalMode || extension.helixKeymap.selectMode)"
+      },
+      {
+        "key": "space f",
+        "command": "workbench.action.quickOpen",
+        "when": "!editorTextFocus && !inputFocus && !listFocus && !terminalFocus && extension.helixKeymap.normalMode"
+      },
+      {
+        "key": "space shift+s",
+        "command": "workbench.action.showAllSymbols",
+        "when": "!editorTextFocus && !inputFocus && !listFocus && !terminalFocus && extension.helixKeymap.normalMode"
+      },
+      {
+        "key": "space d",
+        "command": "workbench.actions.view.problems",
+        "when": "!editorTextFocus && !inputFocus && !listFocus && !terminalFocus && extension.helixKeymap.normalMode"
+      },
+      {
+        "key": "space shift+d",
+        "command": "workbench.actions.view.problems",
+        "when": "!editorTextFocus && !inputFocus && !listFocus && !terminalFocus && extension.helixKeymap.normalMode"
+      },
+      {
+        "key": "space /",
+        "command": "workbench.action.findInFiles",
+        "when": "!editorTextFocus && !inputFocus && !listFocus && !terminalFocus && extension.helixKeymap.normalMode"
+      },
+      {
+        "key": "space shift+/",
+        "command": "workbench.action.showCommands",
+        "when": "!editorTextFocus && !inputFocus && !listFocus && !terminalFocus && extension.helixKeymap.normalMode"
+      },
+      {
+        "key": "space w h",
+        "command": "workbench.action.focusLeftGroup",
+        "when": "!editorTextFocus && !inputFocus && !listFocus && !terminalFocus && extension.helixKeymap.normalMode"
+      },
+      {
+        "key": "space w l",
+        "command": "workbench.action.focusRightGroup",
+        "when": "!editorTextFocus && !inputFocus && !listFocus && !terminalFocus && extension.helixKeymap.normalMode"
+      },
+      {
+        "key": "space w j",
+        "command": "workbench.action.focusBelowGroup",
+        "when": "!editorTextFocus && !inputFocus && !listFocus && !terminalFocus && extension.helixKeymap.normalMode"
+      },
+      {
+        "key": "space w k",
+        "command": "workbench.action.focusAboveGroup",
+        "when": "!editorTextFocus && !inputFocus && !listFocus && !terminalFocus && extension.helixKeymap.normalMode"
+      },
+      {
+        "key": "backspace",
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "deleteLeft"
+        },
+        "when": "editorTextFocus && extension.helixKeymap.insertMode && extension.helixKeymap.recordingMacro"
+      },
+      {
+        "key": "delete",
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "deleteRight"
+        },
+        "when": "editorTextFocus && extension.helixKeymap.insertMode && extension.helixKeymap.recordingMacro"
+      },
+      {
+        "key": "tab",
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "tab"
+        },
+        "when": "editorTextFocus && extension.helixKeymap.insertMode && extension.helixKeymap.recordingMacro && !suggestWidgetVisible && !inlineSuggestionVisible && !inSnippetMode"
+      },
+      {
+        "key": "left",
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "cursorLeft"
+        },
+        "when": "editorTextFocus && extension.helixKeymap.insertMode && extension.helixKeymap.recordingMacro"
+      },
+      {
+        "key": "right",
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "cursorRight"
+        },
+        "when": "editorTextFocus && extension.helixKeymap.insertMode && extension.helixKeymap.recordingMacro"
+      },
+      {
+        "key": "up",
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "cursorUp"
+        },
+        "when": "editorTextFocus && extension.helixKeymap.insertMode && extension.helixKeymap.recordingMacro && !suggestWidgetVisible"
+      },
+      {
+        "key": "down",
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "cursorDown"
+        },
+        "when": "editorTextFocus && extension.helixKeymap.insertMode && extension.helixKeymap.recordingMacro && !suggestWidgetVisible"
+      },
+      {
+        "key": "home",
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "cursorHome"
+        },
+        "when": "editorTextFocus && extension.helixKeymap.insertMode && extension.helixKeymap.recordingMacro"
+      },
+      {
+        "key": "end",
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "cursorEnd"
+        },
+        "when": "editorTextFocus && extension.helixKeymap.insertMode && extension.helixKeymap.recordingMacro"
+      },
+      {
+        "key": "enter",
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "acceptSelectedSuggestion"
+        },
+        "when": "editorTextFocus && extension.helixKeymap.insertMode && extension.helixKeymap.recordingMacro && acceptSuggestionOnEnter && suggestWidgetVisible && suggestWidgetHasFocusedSuggestion"
+      },
+      {
+        "key": "tab",
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "acceptSelectedSuggestion"
+        },
+        "when": "editorTextFocus && extension.helixKeymap.insertMode && extension.helixKeymap.recordingMacro && suggestWidgetVisible && suggestWidgetHasFocusedSuggestion"
+      },
+      {
+        "key": "tab",
+        "command": "extension.helixKeymap.exec",
+        "args": {
+          "command": "editor.action.inlineSuggest.commit"
+        },
+        "when": "editorTextFocus && extension.helixKeymap.insertMode && extension.helixKeymap.recordingMacro && inlineSuggestionVisible && !suggestWidgetVisible"
       }
     ],
     "configuration": {
@@ -305,6 +514,12 @@
           "type": "boolean",
           "default": false,
           "description": "Enable toggling relative line numbers based on editor mode. When enabled, relative line numbers are shown in all modes except Insert mode, where they toggle to absolute line numbers."
+        },
+        "helixKeymap.macroMaxKeys": {
+          "type": "number",
+          "default": 100,
+          "minimum": 0,
+          "description": "Maximum number of keys a macro recording can hold. Recording is cancelled, leaving the previous macro unchanged, when it is reached. 0 means no limit."
         }
       }
     }
@@ -316,10 +531,10 @@
     "pack": "vsce package --no-dependencies",
     "publish": "vsce publish --no-dependencies",
     "vscode:prepublish": "npm run build:prod",
-    "lint": "prettier --check --plugin-search-dir=. src && eslint src",
-    "format": "prettier --write --plugin-search-dir=. src",
+    "lint": "prettier --check src && eslint src",
+    "format": "prettier --write src",
     "typecheck": "tsc --noEmit",
-    "release": "bumpp && npm run publish"
+    "release": "bumpp"
   },
   "devDependencies": {
     "@types/http-errors": "^1.8.0",
@@ -328,14 +543,17 @@
     "@typescript-eslint/eslint-plugin": "^6.10.0",
     "@typescript-eslint/parser": "^6.10.0",
     "bumpp": "^8.2.1",
+    "esbuild": "^0.19.5",
     "eslint": "^8.27.0",
     "eslint-config-prettier": "^9.0.0",
     "esno": "^0.16.3",
     "prettier": "^3.0.3",
     "rimraf": "^3.0.2",
-    "string.prototype.matchall": "^4.0.2",
     "typescript": "^5.2.2",
-    "esbuild": "^0.19.5",
     "vsce": "^2.11.0"
+  },
+  "allowScripts": {
+    "esbuild@0.19.12": true,
+    "esbuild@0.18.20": true
   }
 }

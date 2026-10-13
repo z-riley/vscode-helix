@@ -1,7 +1,7 @@
-import * as vscode from 'vscode';
+import { exec } from './exec';
 
 function editorScroll(to: string, by: string) {
-  vscode.commands.executeCommand('editorScroll', {
+  exec('editorScroll', {
     to: to,
     by: by,
     revealCursor: true,

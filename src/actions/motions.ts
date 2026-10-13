@@ -7,135 +7,128 @@ import { paragraphBackward, paragraphForward } from '../paragraph_utils';
 import { parseKeysExact, parseKeysRegex } from '../parse_keys';
 import * as positionUtils from '../position_utils';
 import { searchBackward, searchForward } from '../search_utils';
-import {
-  vimToVscodeVisualLineSelection,
-  vimToVscodeVisualSelection,
-  vscodeToVimVisualLineSelection,
-  vscodeToVimVisualSelection,
-} from '../selection_utils';
-import { setVisualLineSelections } from '../visual_line_utils';
-import { setVisualSelections } from '../visual_utils';
+import { helixToVscodeSelection, vscodeToHelixSelection } from '../selection_utils';
+import { fixSelectionAnchors } from '../selection_fix_utils';
 import { whitespaceWordRanges, wordRanges } from '../word_utils';
 import KeyMap from './keymaps';
+import { exec } from '../exec';
 
 export const motions: Action[] = [
-  parseKeysExact([KeyMap.Motions.MoveRight], [Mode.Visual], (vimState, editor) => {
+  parseKeysExact([KeyMap.Motions.MoveRight], [Mode.Select], (vimState, editor) => {
     execMotion(vimState, editor, ({ document, position }) => {
-      return positionUtils.rightNormal(document, position, vimState.resolveCount());
+      for (let i = 0; i < vimState.resolveCount(); i++) position = positionUtils.rightWrap(document, position);
+      return position;
     });
   }),
 
-  parseKeysExact([KeyMap.Motions.MoveLeft], [Mode.Visual], (vimState, editor) => {
-    execMotion(vimState, editor, ({ position }) => {
-      return positionUtils.left(position, vimState.resolveCount());
+  parseKeysExact([KeyMap.Motions.MoveLeft], [Mode.Select], (vimState, editor) => {
+    execMotion(vimState, editor, ({ document, position }) => {
+      for (let i = 0; i < vimState.resolveCount(); i++) position = positionUtils.leftWrap(document, position);
+      return position;
     });
   }),
 
-  parseKeysExact([KeyMap.Motions.MoveRight], [Mode.Normal], () => {
-    vscode.commands.executeCommand('cursorRight');
+  parseKeysExact([KeyMap.Motions.MoveRight], [Mode.Normal], (vimState, editor) => {
+    collapseToCursor(editor);
+    const count = vimState.resolveCount();
+    exec('cursorMove', {
+      to: 'right',
+      by: 'character',
+      value: count,
+    });
   }),
 
-  parseKeysExact([KeyMap.Motions.MoveLeft], [Mode.Normal], () => {
-    vscode.commands.executeCommand('cursorLeft');
+  parseKeysExact([KeyMap.Motions.MoveLeft], [Mode.Normal], (vimState, editor) => {
+    collapseToCursor(editor);
+    const count = vimState.resolveCount();
+    exec('cursorMove', {
+      to: 'left',
+      by: 'character',
+      value: count,
+    });
   }),
 
-  parseKeysExact([KeyMap.Motions.MoveUp], [Mode.Normal], (_vimState, _editor) => {
-    vscode.commands.executeCommand('cursorMove', {
+  parseKeysExact([KeyMap.Motions.MoveUp], [Mode.Normal], (vimState, editor) => {
+    collapseToCursor(editor);
+    exec('cursorMove', {
       to: 'up',
       by: 'wrappedLine',
-      value: _vimState.resolveCount(),
+      value: vimState.resolveCount(),
     });
   }),
-  parseKeysExact([KeyMap.Motions.MoveUp], [Mode.Visual], (vimState, editor) => {
+  parseKeysExact([KeyMap.Motions.MoveUp], [Mode.Select], (vimState, editor) => {
     const originalSelections = editor.selections;
 
-    vscode.commands
-      .executeCommand('cursorMove', {
-        to: 'up',
-        by: 'wrappedLine',
-        select: true,
-        value: vimState.resolveCount(),
-      })
-      .then(() => {
-        setVisualSelections(editor, originalSelections);
-      });
+    exec('cursorMove', {
+      to: 'up',
+      by: 'wrappedLine',
+      select: true,
+      value: vimState.resolveCount(),
+    }).then(() => {
+      fixSelectionAnchors(editor, originalSelections);
+    });
   }),
-  parseKeysExact([KeyMap.Motions.MoveUp], [Mode.VisualLine], (vimState, editor) => {
-    vscode.commands
-      .executeCommand('cursorMove', { to: 'up', by: 'line', select: true, value: vimState.resolveCount() })
-      .then(() => {
-        setVisualLineSelections(editor);
-      });
-  }),
-
-  parseKeysExact([KeyMap.Motions.MoveDown], [Mode.Normal], (_vimState, _editor) => {
-    vscode.commands.executeCommand('cursorMove', {
+  parseKeysExact([KeyMap.Motions.MoveDown], [Mode.Normal], (vimState, editor) => {
+    collapseToCursor(editor);
+    exec('cursorMove', {
       to: 'down',
       by: 'wrappedLine',
-      value: _vimState.resolveCount(),
+      value: vimState.resolveCount(),
     });
   }),
-  parseKeysExact([KeyMap.Motions.MoveDown], [Mode.Visual], (vimState, editor) => {
+  parseKeysExact([KeyMap.Motions.MoveDown], [Mode.Select], (vimState, editor) => {
     const originalSelections = editor.selections;
 
-    vscode.commands
-      .executeCommand('cursorMove', {
-        to: 'down',
-        by: 'wrappedLine',
-        select: true,
-        value: vimState.resolveCount(),
-      })
-      .then(() => {
-        setVisualSelections(editor, originalSelections);
-      });
-  }),
-
-  parseKeysExact([KeyMap.Motions.MoveDown], [Mode.VisualLine], (vimState, editor) => {
-    vscode.commands.executeCommand('cursorMove', { to: 'down', by: 'line', select: true }).then(() => {
-      setVisualLineSelections(editor);
+    exec('cursorMove', {
+      to: 'down',
+      by: 'wrappedLine',
+      select: true,
+      value: vimState.resolveCount(),
+    }).then(() => {
+      fixSelectionAnchors(editor, originalSelections);
     });
   }),
 
-  parseKeysExact(['w'], [Mode.Normal, Mode.Visual], (vimState, editor) => {
+  parseKeysExact(['w'], [Mode.Normal, Mode.Select], (vimState, editor) => {
     const count = vimState.resolveCount();
     for (let i = 0; i < count; i++) {
       createWordForwardHandler(wordRanges)(vimState, editor);
     }
   }),
-  parseKeysExact(['W'], [Mode.Normal, Mode.Visual], (vimState, editor) => {
+  parseKeysExact(['W'], [Mode.Normal, Mode.Select], (vimState, editor) => {
     const count = vimState.resolveCount();
     for (let i = 0; i < count; i++) {
       createWordForwardHandler(whitespaceWordRanges)(vimState, editor);
     }
   }),
 
-  parseKeysExact(['b'], [Mode.Normal, Mode.Visual], (vimState, editor) => {
+  parseKeysExact(['b'], [Mode.Normal, Mode.Select], (vimState, editor) => {
     const count = vimState.resolveCount();
     for (let i = 0; i < count; i++) {
       createWordBackwardHandler(wordRanges)(vimState, editor);
     }
   }),
-  parseKeysExact(['B'], [Mode.Normal, Mode.Visual], (vimState, editor) => {
+  parseKeysExact(['B'], [Mode.Normal, Mode.Select], (vimState, editor) => {
     const count = vimState.resolveCount();
     for (let i = 0; i < count; i++) {
       createWordBackwardHandler(whitespaceWordRanges)(vimState, editor);
     }
   }),
 
-  parseKeysExact(['e'], [Mode.Normal, Mode.Visual], (vimState, editor) => {
+  parseKeysExact(['e'], [Mode.Normal, Mode.Select], (vimState, editor) => {
     const count = vimState.resolveCount();
     for (let i = 0; i < count; i++) {
       createWordEndHandler(wordRanges)(vimState, editor);
     }
   }),
-  parseKeysExact(['E'], [Mode.Normal, Mode.Visual], (vimState, editor) => {
+  parseKeysExact(['E'], [Mode.Normal, Mode.Select], (vimState, editor) => {
     const count = vimState.resolveCount();
     for (let i = 0; i < count; i++) {
       createWordEndHandler(whitespaceWordRanges)(vimState, editor);
     }
   }),
 
-  parseKeysRegex(/^f(.)$/, /^(f|f.)$/, [Mode.Normal, Mode.Visual], (vimState, editor, match) => {
+  parseKeysRegex(/^f([\s\S])$/, /^(f|f.)$/, [Mode.Normal, Mode.Select], (vimState, editor, match) => {
     findForward(vimState, editor, match);
 
     vimState.repeatLastMotion = (innerVimState, innerEditor) => {
@@ -143,7 +136,7 @@ export const motions: Action[] = [
     };
   }),
 
-  parseKeysRegex(/^F(.)$/, /^(F|F.)$/, [Mode.Normal, Mode.Visual], (vimState, editor, match) => {
+  parseKeysRegex(/^F([\s\S])$/, /^(F|F.)$/, [Mode.Normal, Mode.Select], (vimState, editor, match) => {
     findBackward(vimState, editor, match);
 
     vimState.repeatLastMotion = (innerVimState, innerEditor) => {
@@ -151,7 +144,7 @@ export const motions: Action[] = [
     };
   }),
 
-  parseKeysRegex(/^t(.)$/, /^t$/, [Mode.Normal, Mode.Visual], (vimState, editor, match) => {
+  parseKeysRegex(/^t([\s\S])$/, /^t$/, [Mode.Normal, Mode.Select], (vimState, editor, match) => {
     tillForward(vimState, editor, match);
 
     vimState.repeatLastMotion = (innerVimState, innerEditor) => {
@@ -159,7 +152,7 @@ export const motions: Action[] = [
     };
   }),
 
-  parseKeysRegex(/^T(.)$/, /^T$/, [Mode.Normal, Mode.Visual], (vimState, editor, match) => {
+  parseKeysRegex(/^T([\s\S])$/, /^T$/, [Mode.Normal, Mode.Select], (vimState, editor, match) => {
     tillBackward(vimState, editor, match);
 
     vimState.repeatLastMotion = (innerVimState, innerEditor) => {
@@ -167,38 +160,44 @@ export const motions: Action[] = [
     };
   }),
 
-  parseKeysExact(['}'], [Mode.Normal, Mode.Visual, Mode.VisualLine], (vimState, editor) => {
+  parseKeysExact(['}'], [Mode.Normal, Mode.Select], (vimState, editor) => {
     execMotion(vimState, editor, ({ document, position }) => {
       return new vscode.Position(paragraphForward(document, position.line), 0);
     });
   }),
 
-  parseKeysExact([']', 'p'], [Mode.Normal, Mode.Visual, Mode.VisualLine], (vimState, editor) => {
-    execMotion(vimState, editor, ({ document, position }) => {
-      return new vscode.Position(paragraphForward(document, position.line), 0);
-    });
+  parseKeysExact([']', 'p'], [Mode.Normal, Mode.Select], (vimState, editor) => {
+    const count = vimState.resolveCount();
+    for (let i = 0; i < count; i++) {
+      execMotion(vimState, editor, ({ document, position }) => {
+        return new vscode.Position(paragraphForward(document, position.line), 0);
+      });
+    }
   }),
 
-  parseKeysExact(['{'], [Mode.Normal, Mode.Visual, Mode.VisualLine], (vimState, editor) => {
-    execMotion(vimState, editor, ({ document, position }) => {
-      return new vscode.Position(paragraphBackward(document, position.line), 0);
-    });
-  }),
-
-  parseKeysExact(['[', 'p'], [Mode.Normal, Mode.Visual, Mode.VisualLine], (vimState, editor) => {
+  parseKeysExact(['{'], [Mode.Normal, Mode.Select], (vimState, editor) => {
     execMotion(vimState, editor, ({ document, position }) => {
       return new vscode.Position(paragraphBackward(document, position.line), 0);
     });
   }),
 
-  parseKeysExact([KeyMap.Motions.MoveLineEnd], [Mode.Normal, Mode.Visual, Mode.VisualLine], (vimState, editor) => {
+  parseKeysExact(['[', 'p'], [Mode.Normal, Mode.Select], (vimState, editor) => {
+    const count = vimState.resolveCount();
+    for (let i = 0; i < count; i++) {
+      execMotion(vimState, editor, ({ document, position }) => {
+        return new vscode.Position(paragraphBackward(document, position.line), 0);
+      });
+    }
+  }),
+
+  parseKeysExact([KeyMap.Motions.MoveLineEnd], [Mode.Normal, Mode.Select], (vimState, editor) => {
     execMotion(vimState, editor, ({ document, position }) => {
       const lineLength = document.lineAt(position.line).text.length;
       return position.with({ character: Math.max(lineLength - 1, 0) });
     });
   }),
 
-  parseKeysExact([KeyMap.Motions.MoveLineStart], [Mode.Normal, Mode.Visual, Mode.VisualLine], (vimState, editor) => {
+  parseKeysExact([KeyMap.Motions.MoveLineStart], [Mode.Normal, Mode.Select], (vimState, editor) => {
     execMotion(vimState, editor, ({ document, position }) => {
       const line = document.lineAt(position.line);
       return position.with({
@@ -208,96 +207,55 @@ export const motions: Action[] = [
   }),
 
   parseKeysExact(['H'], [Mode.Normal], (_vimState, _editor) => {
-    vscode.commands.executeCommand('cursorMove', {
+    exec('cursorMove', {
       to: 'viewPortTop',
       by: 'line',
     });
   }),
-  parseKeysExact(['H'], [Mode.Visual], (vimState, editor) => {
+  parseKeysExact(['H'], [Mode.Select], (_vimState, editor) => {
     const originalSelections = editor.selections;
 
-    vscode.commands
-      .executeCommand('cursorMove', {
-        to: 'viewPortTop',
-        by: 'line',
-        select: true,
-      })
-      .then(() => {
-        setVisualSelections(editor, originalSelections);
-      });
+    exec('cursorMove', {
+      to: 'viewPortTop',
+      by: 'line',
+      select: true,
+    }).then(() => {
+      fixSelectionAnchors(editor, originalSelections);
+    });
   }),
-  parseKeysExact(['H'], [Mode.VisualLine], (vimState, editor) => {
-    vscode.commands
-      .executeCommand('cursorMove', {
-        to: 'viewPortTop',
-        by: 'line',
-        select: true,
-      })
-      .then(() => {
-        setVisualLineSelections(editor);
-      });
-  }),
-
   parseKeysExact(['M'], [Mode.Normal], (_vimState, _editor) => {
-    vscode.commands.executeCommand('cursorMove', {
+    exec('cursorMove', {
       to: 'viewPortCenter',
       by: 'line',
     });
   }),
-  parseKeysExact(['M'], [Mode.Visual], (vimState, editor) => {
+  parseKeysExact(['M'], [Mode.Select], (_vimState, editor) => {
     const originalSelections = editor.selections;
 
-    vscode.commands
-      .executeCommand('cursorMove', {
-        to: 'viewPortCenter',
-        by: 'line',
-        select: true,
-      })
-      .then(() => {
-        setVisualSelections(editor, originalSelections);
-      });
+    exec('cursorMove', {
+      to: 'viewPortCenter',
+      by: 'line',
+      select: true,
+    }).then(() => {
+      fixSelectionAnchors(editor, originalSelections);
+    });
   }),
-  parseKeysExact(['M'], [Mode.VisualLine], (vimState, editor) => {
-    vscode.commands
-      .executeCommand('cursorMove', {
-        to: 'viewPortCenter',
-        by: 'line',
-        select: true,
-      })
-      .then(() => {
-        setVisualLineSelections(editor);
-      });
-  }),
-
   parseKeysExact(['L'], [Mode.Normal], (_vimState, _editor) => {
-    vscode.commands.executeCommand('cursorMove', {
+    exec('cursorMove', {
       to: 'viewPortBottom',
       by: 'line',
     });
   }),
-  parseKeysExact(['L'], [Mode.Visual], (vimState, editor) => {
+  parseKeysExact(['L'], [Mode.Select], (_vimState, editor) => {
     const originalSelections = editor.selections;
 
-    vscode.commands
-      .executeCommand('cursorMove', {
-        to: 'viewPortBottom',
-        by: 'line',
-        select: true,
-      })
-      .then(() => {
-        setVisualSelections(editor, originalSelections);
-      });
-  }),
-  parseKeysExact(['L'], [Mode.VisualLine], (vimState, editor) => {
-    vscode.commands
-      .executeCommand('cursorMove', {
-        to: 'viewPortBottom',
-        by: 'line',
-        select: true,
-      })
-      .then(() => {
-        setVisualLineSelections(editor);
-      });
+    exec('cursorMove', {
+      to: 'viewPortBottom',
+      by: 'line',
+      select: true,
+    }).then(() => {
+      fixSelectionAnchors(editor, originalSelections);
+    });
   }),
 ];
 
@@ -342,8 +300,8 @@ function execMotion(vimState: HelixState, editor: vscode.TextEditor, motion: (ar
         vimState: vimState,
       });
       return new vscode.Selection(selection.active, newPosition);
-    } else if (vimState.mode === Mode.Visual) {
-      const vimSelection = vscodeToVimVisualSelection(document, selection);
+    } else if (vimState.mode === Mode.Select) {
+      const vimSelection = vscodeToHelixSelection(document, selection);
       const motionPosition = motion({
         document: document,
         position: vimSelection.active,
@@ -351,17 +309,7 @@ function execMotion(vimState: HelixState, editor: vscode.TextEditor, motion: (ar
         vimState: vimState,
       });
 
-      return vimToVscodeVisualSelection(document, new vscode.Selection(vimSelection.anchor, motionPosition));
-    } else if (vimState.mode === Mode.VisualLine) {
-      const vimSelection = vscodeToVimVisualLineSelection(document, selection);
-      const motionPosition = motion({
-        document: document,
-        position: vimSelection.active,
-        selectionIndex: i,
-        vimState: vimState,
-      });
-
-      return vimToVscodeVisualLineSelection(document, new vscode.Selection(vimSelection.anchor, motionPosition));
+      return helixToVscodeSelection(document, new vscode.Selection(vimSelection.anchor, motionPosition));
     } else {
       return selection;
     }
@@ -376,54 +324,80 @@ function execMotion(vimState: HelixState, editor: vscode.TextEditor, motion: (ar
 }
 
 function findForward(vimState: HelixState, editor: vscode.TextEditor, outerMatch: RegExpMatchArray): void {
-  execRegexMotion(vimState, editor, outerMatch, ({ document, position, match }) => {
-    const fromPosition = position.with({ character: position.character + 1 });
-    const result = searchForward(document, match[1], fromPosition);
+  const count = vimState.resolveCount();
+  if (vimState.mode === Mode.Normal) collapseToCursor(editor);
 
-    if (result) {
-      return result.with({ character: result.character + 1 });
-    } else {
-      return position;
-    }
+  execRegexMotion(vimState, editor, outerMatch, ({ document, position, match }) => {
+    const result = searchNth(count, position, (from) => searchForward(document, match[1], from.translate(0, 1)));
+    if (!result) return position;
+
+    // Wraps so that selecting a newline extends to the start of the next line
+    const target = positionUtils.rightWrap(document, result);
+    // Select-mode selections stop on the character before the target
+    return vimState.mode === Mode.Select ? positionLeftWrap(document, target) : target;
   });
 }
 
 function findBackward(vimState: HelixState, editor: vscode.TextEditor, outerMatch: RegExpMatchArray): void {
-  execRegexMotion(vimState, editor, outerMatch, ({ document, position, match }) => {
-    const fromPosition = positionLeftWrap(document, position);
-    const result = searchBackward(document, match[1], fromPosition);
+  const count = vimState.resolveCount();
+  if (vimState.mode === Mode.Normal) collapseToCursor(editor);
 
-    if (result) {
-      return result;
-    } else {
-      return position;
-    }
+  execRegexMotion(vimState, editor, outerMatch, ({ document, position, match }) => {
+    const result = searchNth(count, position, (from) =>
+      searchBackward(document, match[1], positionLeftWrap(document, from)),
+    );
+    return result ?? position;
   });
 }
 
 function tillForward(vimState: HelixState, editor: vscode.TextEditor, outerMatch: RegExpMatchArray): void {
-  execRegexMotion(vimState, editor, outerMatch, ({ document, position, match }) => {
-    const fromPosition = position.with({ character: position.character + 1 });
-    const result = searchForward(document, match[1], fromPosition);
+  const count = vimState.resolveCount();
+  if (vimState.mode === Mode.Normal) collapseToCursor(editor);
 
-    if (result) {
-      return result.with({ character: result.character });
-    } else {
-      return position;
-    }
+  execRegexMotion(vimState, editor, outerMatch, ({ document, position, match }) => {
+    const result = searchNth(count, position, (from) => searchForward(document, match[1], from.translate(0, 1)));
+    if (!result) return position;
+    // Select-mode selections stop on the character before the target
+    return vimState.mode === Mode.Select ? positionLeftWrap(document, result) : result;
   });
 }
 
 function tillBackward(vimState: HelixState, editor: vscode.TextEditor, outerMatch: RegExpMatchArray): void {
-  execRegexMotion(vimState, editor, outerMatch, ({ document, position, match }) => {
-    const fromPosition = positionLeftWrap(document, position);
-    const result = searchBackward(document, match[1], fromPosition);
+  const count = vimState.resolveCount();
+  if (vimState.mode === Mode.Normal) collapseToCursor(editor);
 
-    if (result) {
-      return result;
-    } else {
-      return position;
-    }
+  execRegexMotion(vimState, editor, outerMatch, ({ document, position, match }) => {
+    const result = searchNth(count, position, (from) =>
+      searchBackward(document, match[1], positionLeftWrap(document, from)),
+    );
+    // Stop just after the match, wrapping past a newline
+    return result ? positionUtils.rightWrap(document, result) : position;
+  });
+}
+
+// Run a search count times, each one starting from the last match
+function searchNth(
+  count: number,
+  position: vscode.Position,
+  search: (from: vscode.Position) => vscode.Position | undefined,
+): vscode.Position | undefined {
+  let result: vscode.Position | undefined = position;
+  for (let i = 0; i < count && result; i++) {
+    result = search(result);
+  }
+  return result;
+}
+
+function collapseToCursor(editor: vscode.TextEditor): void {
+  // Setting selections resets VS Code's remembered column, so leave bare cursors alone
+  if (editor.selections.every((selection) => selection.isEmpty)) return;
+
+  editor.selections = editor.selections.map((selection) => {
+    const cursor =
+      selection.isEmpty || selection.isReversed
+        ? selection.active
+        : positionLeftWrap(editor.document, selection.active);
+    return new vscode.Selection(cursor, cursor);
   });
 }
 
@@ -445,29 +419,26 @@ function createWordForwardHandler(
 ): (vimState: HelixState, editor: vscode.TextEditor) => void {
   return (vimState, editor) => {
     execMotion(vimState, editor, ({ document, position }) => {
-      let character = position.character;
-      // Try the current line and if we're at the end go to the next line
-      // This way we're only keeping one line of text in memory at a time
-      // i is representing the relative line number we're on from where we started
-      for (let i = 0; i < document.lineCount; i++) {
-        const lineText = document.lineAt(position.line + i).text;
-        const ranges = wordRangesFunction(lineText);
+      const isSelect = vimState.mode === Mode.Select;
+      // In Select mode the cursor already sits just before a word, so look past it
+      let searchAfter = isSelect ? position.character + 1 : position.character;
 
-        const result = ranges.find((x) => x.start > character);
+      // Stop at the next word start, or the end of the document if there isn't one
+      let target = document.lineAt(document.lineCount - 1).range.end;
+      for (let line = position.line; line < document.lineCount; line++) {
+        const word = wordRangesFunction(document.lineAt(line).text).find((x) => x.start > searchAfter);
 
-        if (result) {
-          if (vimState.mode === Mode.Normal) {
-            return position.with({ character: result.start, line: position.line + i });
-          } else {
-            return position.with({ character: result.start-1, line: position.line + i });
-          }
+        if (word) {
+          target = new vscode.Position(line, word.start);
+          break;
         }
-        // If we don't find anything on this line, search the next and reset the character to 0
-        character = 0;
+
+        // Nothing left on this line, so search the next one from its start
+        searchAfter = -1;
       }
 
-      // We may be at the end of the document or nothing else matches
-      return position;
+      // Select-mode selections stop on the character before the target
+      return isSelect ? positionLeftWrap(document, target) : target;
     });
   };
 }
@@ -505,20 +476,30 @@ function createWordEndHandler(
 ): (vimState: HelixState, editor: vscode.TextEditor) => void {
   return (vimState, editor) => {
     execMotion(vimState, editor, ({ document, position }) => {
-      const lineText = document.lineAt(position.line).text;
-      const ranges = wordRangesFunction(lineText);
+      let character = position.character;
+      // Try the current line and if we're at the end go to the next line
+      // This way we're only keeping one line of text in memory at a time
+      // i is representing the relative line number we're on from where we started
+      for (let i = 0; i < document.lineCount - position.line; i++) {
+        const lineNumber = position.line + i;
+        const lineText = document.lineAt(lineNumber).text;
+        const ranges = wordRangesFunction(lineText);
 
-      const result = ranges.find((x) => x.end > position.character);
+        const result = ranges.find((x) => x.end > character);
 
-      if (result) {
-        if (vimState.mode === Mode.Normal) {
-          return position.with({ character: result.end + 1 });
-        } else {
-          return position.with({ character: result.end });
+        if (result) {
+          if (vimState.mode === Mode.Normal) {
+            return position.with({ character: result.end + 1, line: lineNumber });
+          } else {
+            return position.with({ character: result.end, line: lineNumber });
+          }
         }
-      } else {
-        return position;
+        // Nothing left on this line, so search the next one from its start
+        character = -1;
       }
+
+      // We may be at the end of the document or nothing else matches
+      return position;
     });
   };
 }

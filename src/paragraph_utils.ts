@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import { Range } from 'vscode';
 import { SimpleRange } from './simple_range_types';
 
 export function paragraphForward(document: vscode.TextDocument, line: number): number {

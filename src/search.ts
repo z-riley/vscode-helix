@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { HelixState } from './helix_state_types';
 import { enterNormalMode } from './modes';
 import { Mode } from './modes_types';
+import { exec } from './exec';
 
 // class which handles the search & select functionality
 export class SearchState {
@@ -12,7 +13,7 @@ export class SearchState {
   /** Index of the current search string in the search history */
   searchHistoryIndex: number = this.searchHistory.length - 1; // Add this line
   /** Have we just come out of select mode? */
-  selectModeActive: boolean = false;
+  selectRegexActive: boolean = false;
   /** Last active position before search */
   lastActivePosition: vscode.Position | undefined;
   /** Initial position when search started */
@@ -59,7 +60,7 @@ export class SearchState {
 
     this.searchString += char;
     helixState.commandLine.setText(this.searchString, helixState);
-    if (helixState.mode === Mode.Select) {
+    if (helixState.mode === Mode.SelectRegexPrompt) {
       this.findInstancesInRange(helixState);
     } else {
       this.findInstancesInDocument(helixState);
@@ -75,7 +76,7 @@ export class SearchState {
 
     this.searchString += text;
     helixState.commandLine.setText(this.searchString, helixState);
-    if (helixState.mode === Mode.Select) {
+    if (helixState.mode === Mode.SelectRegexPrompt) {
       this.findInstancesInRange(helixState);
     } else {
       this.findInstancesInDocument(helixState);
@@ -86,7 +87,7 @@ export class SearchState {
   backspace(helixState: HelixState): void {
     this.searchString = this.searchString.slice(0, -1);
     helixState.commandLine.setText(this.searchString, helixState);
-    if (this.searchString && helixState.mode === Mode.Select) {
+    if (this.searchString && helixState.mode === Mode.SelectRegexPrompt) {
       this.findInstancesInRange(helixState);
     } else if (this.searchString) {
       this.findInstancesInDocument(helixState);
@@ -108,14 +109,14 @@ export class SearchState {
     // Cache what we have before calling the commmand
 
     // Add the current selection to the next find match
-    if (helixState.mode === Mode.SearchInProgress) {
-      vscode.commands.executeCommand('actions.findWithSelection');
+    if (helixState.mode === Mode.SearchPrompt) {
+      exec('actions.findWithSelection');
     }
 
-    if (helixState.mode === Mode.Select) {
+    if (helixState.mode === Mode.SelectRegexPrompt) {
       // Set a flag to signal we're in select mode, so when we go to search we can search the current selection
       // This is a mitigation around https://github.com/jasonwilliams/vscode-helix/issues/5
-      this.selectModeActive = true;
+      this.selectRegexActive = true;
     }
     // reset search history index
     this.searchHistoryIndex = this.searchHistory.length - 1;
@@ -171,11 +172,13 @@ export class SearchState {
         const startPos = document.positionAt(match.index);
         const endPos = document.positionAt(match.index + match[0].length);
         const foundRange = new vscode.Range(startPos, endPos);
-        if (helixState.currentSelection?.contains(foundRange)) {
+        if (helixState.currentSelections.some((selection) => selection.contains(foundRange))) {
           foundRanges.push(foundRange);
         }
       }
-      editor.selections = foundRanges.map((range) => new vscode.Selection(range.start, range.end));
+      editor.selections = foundRanges.length
+        ? foundRanges.map((range) => new vscode.Selection(range.start, range.end))
+        : [...helixState.currentSelections];
     }
   }
 

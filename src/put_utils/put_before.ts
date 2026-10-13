@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as positionUtils from '../position_utils';
 import type { HelixState } from '../helix_state_types';
 import { adjustInsertPositions, getInsertRangesFromBeginning, getRegisterContentsList } from './common';
+import { edit } from '../exec';
 
 export function putBefore(vimState: HelixState, editor: vscode.TextEditor) {
   const registerContentsList = getRegisterContentsList(vimState, editor);
@@ -30,23 +31,21 @@ function normalModeLinewise(
 
   const adjustedInsertPositions = adjustInsertPositions(insertPositions, insertContentsList);
 
-  editor
-    .edit((editBuilder) => {
-      insertPositions.forEach((position, i) => {
-        const contents = insertContentsList[i];
-        if (contents === undefined) return;
+  edit(editor, (editBuilder) => {
+    insertPositions.forEach((position, i) => {
+      const contents = insertContentsList[i];
+      if (contents === undefined) return;
 
-        editBuilder.insert(position, contents);
-      });
-    })
-    .then(() => {
-      editor.selections = editor.selections.map((selection, i) => {
-        const position = adjustedInsertPositions[i];
-        if (position === undefined) return selection;
-
-        return new vscode.Selection(position, position);
-      });
+      editBuilder.insert(position, contents);
     });
+  }).then(() => {
+    editor.selections = editor.selections.map((selection, i) => {
+      const position = adjustedInsertPositions[i];
+      if (position === undefined) return selection;
+
+      return new vscode.Selection(position, position);
+    });
+  });
 
   vimState.lastPutRanges = {
     ranges: getInsertRangesFromBeginning(adjustedInsertPositions, registerContentsList),
@@ -63,24 +62,22 @@ function normalModeCharacterwise(
   const adjustedInsertPositions = adjustInsertPositions(insertPositions, registerContentsList);
   const insertRanges = getInsertRangesFromBeginning(adjustedInsertPositions, registerContentsList);
 
-  editor
-    .edit((editBuilder) => {
-      insertPositions.forEach((insertPosition, i) => {
-        const registerContents = registerContentsList[i];
-        if (registerContents === undefined) return;
+  edit(editor, (editBuilder) => {
+    insertPositions.forEach((insertPosition, i) => {
+      const registerContents = registerContentsList[i];
+      if (registerContents === undefined) return;
 
-        editBuilder.insert(insertPosition, registerContents);
-      });
-    })
-    .then(() => {
-      editor.selections = editor.selections.map((selection, i) => {
-        const range = insertRanges[i];
-        if (range === undefined) return selection;
-
-        const position = positionUtils.left(range.end);
-        return new vscode.Selection(position, position);
-      });
+      editBuilder.insert(insertPosition, registerContents);
     });
+  }).then(() => {
+    editor.selections = editor.selections.map((selection, i) => {
+      const range = insertRanges[i];
+      if (range === undefined) return selection;
+
+      const position = positionUtils.left(range.end);
+      return new vscode.Selection(position, position);
+    });
+  });
 
   vimState.lastPutRanges = {
     ranges: insertRanges,

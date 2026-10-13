@@ -8,7 +8,9 @@ export function searchForward(
   for (let i = fromPosition.line; i < document.lineCount; ++i) {
     const lineText = document.lineAt(i).text;
     const fromIndex = i === fromPosition.line ? fromPosition.character : 0;
-    const matchIndex = lineText.indexOf(needle, fromIndex);
+    // Line text excludes the line break, so treat end of line as the newline
+    const matchIndex =
+      needle === '\n' ? (fromIndex <= lineText.length ? lineText.length : -1) : lineText.indexOf(needle, fromIndex);
 
     if (matchIndex >= 0) {
       return new vscode.Position(i, matchIndex);
@@ -40,7 +42,8 @@ export function searchBackward(
   for (let i = fromPosition.line; i >= 0; --i) {
     const lineText = document.lineAt(i).text;
     const fromIndex = i === fromPosition.line ? fromPosition.character : +Infinity;
-    const matchIndex = lineText.lastIndexOf(needle, fromIndex);
+    const matchIndex =
+      needle === '\n' ? (fromIndex >= lineText.length ? lineText.length : -1) : lineText.lastIndexOf(needle, fromIndex);
 
     if (matchIndex >= 0) {
       return new vscode.Position(i, matchIndex);

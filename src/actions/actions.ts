@@ -1,14 +1,14 @@
 import * as vscode from 'vscode';
 import { Action } from '../action_types';
 import { HelixState } from '../helix_state_types';
+import { replayMacro, toggleRecording } from '../macro';
 import {
   enterCommandMode,
   enterInsertMode,
   enterNormalMode,
-  enterSearchMode,
+  enterSearchPromptMode,
+  enterSelectRegexPromptMode,
   enterSelectMode,
-  enterVisualLineMode,
-  enterVisualMode,
   setModeCursorStyle,
   setRelativeLineNumbers,
 } from '../modes';
@@ -27,59 +27,60 @@ import { spaceActions } from './spaceMode';
 import { unimparedActions } from './unimpared';
 import { viewActions } from './viewMode';
 import { windowActions } from './windowMode';
+import { exec, edit } from '../exec';
 
-enum Direction {
+export enum Direction {
   Up,
   Down,
 }
 
 export const actions: Action[] = [
   parseKeysExact(['p'], [Mode.Occurrence], () => {
-    vscode.commands.executeCommand('editor.action.addSelectionToPreviousFindMatch');
+    exec('editor.action.addSelectionToPreviousFindMatch');
   }),
 
   parseKeysExact(['a'], [Mode.Occurrence], () => {
-    vscode.commands.executeCommand('editor.action.selectHighlights');
+    exec('editor.action.selectHighlights');
   }),
 
   parseKeysExact(['n'], [Mode.Normal], (helixState) => {
-    if (helixState.searchState.selectModeActive) {
-      vscode.commands.executeCommand('actions.findWithSelection');
-      helixState.searchState.selectModeActive = false;
+    if (helixState.searchState.selectRegexActive) {
+      exec('actions.findWithSelection');
+      helixState.searchState.selectRegexActive = false;
       return;
     }
 
-    vscode.commands.executeCommand('editor.action.nextMatchFindAction');
+    exec('editor.action.nextMatchFindAction');
   }),
 
   parseKeysExact(['N'], [Mode.Normal], (helixState) => {
-    if (helixState.searchState.selectModeActive) {
-      vscode.commands.executeCommand('actions.findWithSelection');
-      helixState.searchState.selectModeActive = false;
+    if (helixState.searchState.selectRegexActive) {
+      exec('actions.findWithSelection');
+      helixState.searchState.selectRegexActive = false;
       return;
     }
-    vscode.commands.executeCommand('editor.action.previousMatchFindAction');
+    exec('editor.action.previousMatchFindAction');
   }),
 
   parseKeysExact(['?'], [Mode.Normal], (helixState) => {
-    enterSearchMode(helixState);
+    enterSearchPromptMode(helixState);
     helixState.searchState.previousSearchResult(helixState);
   }),
 
   // Selection Stuff
-  parseKeysExact(['s'], [Mode.Normal, Mode.Visual], (helixState, editor) => {
-    enterSelectMode(helixState);
-    // if we enter select mode we should save the current selection
-    helixState.currentSelection = editor.selection;
+  parseKeysExact(['s'], [Mode.Normal, Mode.Select], (helixState, editor) => {
+    enterSelectRegexPromptMode(helixState);
+    // if we enter select mode we should save the current selections
+    helixState.currentSelections = editor.selections;
   }),
 
-  parseKeysExact([','], [Mode.Normal, Mode.Visual], (_, editor) => {
+  parseKeysExact([','], [Mode.Normal, Mode.Select], (_, editor) => {
     // Keep primary selection only
     editor.selections = editor.selections.slice(0, 1);
   }),
 
   parseKeysExact(['/'], [Mode.Normal], (helixState) => {
-    enterSearchMode(helixState);
+    enterSearchPromptMode(helixState);
   }),
 
   parseKeysExact([':'], [Mode.Normal], (helixState) => {
@@ -87,24 +88,24 @@ export const actions: Action[] = [
   }),
 
   parseKeysExact(['*'], [Mode.Normal], (_) => {
-    vscode.commands.executeCommand('actions.findWithSelection');
+    exec('actions.findWithSelection');
   }),
 
-  parseKeysExact(['>'], [Mode.Normal, Mode.Visual], (_) => {
-    vscode.commands.executeCommand('editor.action.indentLines');
+  parseKeysExact(['>'], [Mode.Normal, Mode.Select], (_) => {
+    exec('editor.action.indentLines');
   }),
 
-  parseKeysExact(['<'], [Mode.Normal, Mode.Visual], (_) => {
-    vscode.commands.executeCommand('editor.action.outdentLines');
+  parseKeysExact(['<'], [Mode.Normal, Mode.Select], (_) => {
+    exec('editor.action.outdentLines');
   }),
 
-  parseKeysExact(['='], [Mode.Normal, Mode.Visual], (_) => {
-    vscode.commands.executeCommand('editor.action.formatSelection');
+  parseKeysExact(['='], [Mode.Normal, Mode.Select], (_) => {
+    exec('editor.action.formatSelection');
   }),
 
-  parseKeysExact(['`'], [Mode.Normal], (vimState, editor) => {
+  parseKeysExact(['`'], [Mode.Normal], (_vimState, editor) => {
     // Take the selection and make it all lowercase
-    editor.edit((editBuilder) => {
+    edit(editor, (editBuilder) => {
       editor.selections.forEach((selection) => {
         const text = editor.document.getText(selection);
         editBuilder.replace(selection, text.toLowerCase());
@@ -112,9 +113,9 @@ export const actions: Action[] = [
     });
   }),
 
-  parseKeysExact(['~'], [Mode.Normal], (vimState, editor) => {
+  parseKeysExact(['~'], [Mode.Normal], (_vimState, editor) => {
     // Switch the case of the selection (so if upper case make lower case and vice versa)
-    editor.edit((editBuilder) => {
+    edit(editor, (editBuilder) => {
       editor.selections.forEach((selection) => {
         const text = editor.document.getText(selection);
         editBuilder.replace(
@@ -126,24 +127,24 @@ export const actions: Action[] = [
   }),
 
   // 	replace
-  parseKeysRegex(/^r(.)/, /^r/, [Mode.Normal], (helixState, editor, match) => {
-    const position = editor.selection.active;
-    editor.edit((builder) => {
-      builder.replace(new vscode.Range(position, position.with({ character: position.character + 1 })), match[1]);
+  parseKeysRegex(/^r([\s\S])$/, /^r$/, [Mode.Normal, Mode.Select], (_helixState, editor, match) => {
+    edit(editor, (builder) => {
+      editor.selections.forEach((selection) => {
+        const range = selection.isEmpty
+          ? new vscode.Range(selection.active, selection.active.translate(0, 1))
+          : selection;
+        builder.replace(range, editor.document.getText(range).replace(/[^\r\n]/g, match[1]));
+      });
     });
   }),
 
   // existing
-  parseKeysExact(
-    [KeyMap.Actions.InsertMode],
-    [Mode.Normal, Mode.Visual, Mode.VisualLine, Mode.Occurrence],
-    (vimState, editor) => {
-      enterInsertMode(vimState);
-      setModeCursorStyle(vimState.mode, editor);
-      setRelativeLineNumbers(vimState.mode, editor);
-      removeTypeSubscription(vimState);
-    },
-  ),
+  parseKeysExact([KeyMap.Actions.InsertMode], [Mode.Normal, Mode.Select, Mode.Occurrence], (vimState, editor) => {
+    enterInsertMode(vimState);
+    setModeCursorStyle(vimState.mode, editor);
+    setRelativeLineNumbers(vimState.mode, editor);
+    removeTypeSubscription(vimState);
+  }),
 
   parseKeysExact([KeyMap.Actions.InsertAtLineStart], [Mode.Normal], (vimState, editor) => {
     editor.selections = editor.selections.map((selection) => {
@@ -158,7 +159,7 @@ export const actions: Action[] = [
     removeTypeSubscription(vimState);
   }),
 
-  parseKeysExact(['a'], [Mode.Normal], (vimState, editor) => {
+  parseKeysExact(['a'], [Mode.Normal, Mode.Select], (vimState, editor) => {
     enterInsertMode(vimState, false);
     setModeCursorStyle(vimState.mode, editor);
     setRelativeLineNumbers(vimState.mode, editor);
@@ -178,19 +179,22 @@ export const actions: Action[] = [
     removeTypeSubscription(vimState);
   }),
 
-  parseKeysExact(['v'], [Mode.Normal, Mode.VisualLine], (vimState, editor) => {
-    enterVisualMode(vimState);
+  parseKeysExact(['v'], [Mode.Normal], (vimState, editor) => {
+    enterSelectMode(vimState);
     setModeCursorStyle(vimState.mode, editor);
     setRelativeLineNumbers(vimState.mode, editor);
   }),
 
-  parseKeysExact(['x'], [Mode.Normal, Mode.Visual], () => {
-    vscode.commands.executeCommand('expandLineSelection');
+  parseKeysExact(['x'], [Mode.Normal, Mode.Select], (vimState, _editor) => {
+    const count = vimState.resolveCount();
+    for (let i = 0; i < count; i++) {
+      exec('expandLineSelection');
+    }
   }),
 
   parseKeysExact([KeyMap.Actions.NewLineBelow], [Mode.Normal], (vimState, editor) => {
     enterInsertMode(vimState);
-    vscode.commands.executeCommand('editor.action.insertLineAfter');
+    exec('editor.action.insertLineAfter');
     setModeCursorStyle(vimState.mode, editor);
     setRelativeLineNumbers(vimState.mode, editor);
     removeTypeSubscription(vimState);
@@ -198,21 +202,21 @@ export const actions: Action[] = [
 
   parseKeysExact([KeyMap.Actions.NewLineAbove], [Mode.Normal], (vimState, editor) => {
     enterInsertMode(vimState);
-    vscode.commands.executeCommand('editor.action.insertLineBefore');
+    exec('editor.action.insertLineBefore');
     setModeCursorStyle(vimState.mode, editor);
     setRelativeLineNumbers(vimState.mode, editor);
     removeTypeSubscription(vimState);
   }),
 
-  parseKeysExact(['p'], [Mode.Normal, Mode.Visual, Mode.VisualLine], putAfter),
+  parseKeysExact(['p'], [Mode.Normal, Mode.Select], putAfter),
   parseKeysExact(['P'], [Mode.Normal], putBefore),
 
-  parseKeysExact(['u'], [Mode.Normal, Mode.Visual, Mode.VisualLine], () => {
-    vscode.commands.executeCommand('undo');
+  parseKeysExact(['u'], [Mode.Normal, Mode.Select], () => {
+    exec('undo');
   }),
 
-  parseKeysExact(['U'], [Mode.Normal, Mode.Visual, Mode.VisualLine], () => {
-    vscode.commands.executeCommand('redo');
+  parseKeysExact(['U'], [Mode.Normal, Mode.Select], () => {
+    exec('redo');
   }),
 
   parseKeysExact(['d', 'd'], [Mode.Normal], (vimState, editor) => {
@@ -220,16 +224,16 @@ export const actions: Action[] = [
   }),
 
   parseKeysExact(['D'], [Mode.Normal], () => {
-    vscode.commands.executeCommand('deleteAllRight');
+    exec('deleteAllRight');
   }),
 
-  parseKeysRegex(/(\\d+)g/, /^g$/, [Mode.Normal, Mode.Visual], (helixState, editor, match) => {
+  parseKeysRegex(/(\\d+)g/, /^g$/, [Mode.Normal, Mode.Select], (_helixState, _editor, match) => {
     new vscode.Position(parseInt(match[1]), 0);
   }),
 
   // add 1 character swap
-  parseKeysRegex(/^x(.)$/, /^x$/, [Mode.Normal, Mode.Visual], (vimState, editor, match) => {
-    editor.edit((builder) => {
+  parseKeysRegex(/^x(.)$/, /^x$/, [Mode.Normal, Mode.Select], (_vimState, editor, match) => {
+    edit(editor, (builder) => {
       editor.selections.forEach((s) => {
         const oneChar = s.with({
           end: s.active.with({
@@ -241,39 +245,22 @@ export const actions: Action[] = [
     });
   }),
 
-  // same for rip command
-  parseKeysRegex(
-    RegExp(`^r(\\d+)(${KeyMap.Motions.MoveUp}|${KeyMap.Motions.MoveDown})$`),
-    /^(r|r\d+)$/,
-    [Mode.Normal, Mode.Visual],
-    (vimState, editor, match) => {
-      const lineCount = parseInt(match[1]);
-      const direction = match[2] == KeyMap.Motions.MoveUp ? Direction.Up : Direction.Down;
-      // console.log(`delete ${lineCount} lines up`);
-      const selections = makeMultiLineSelection(vimState, editor, lineCount, direction);
-
-      yank(vimState, editor, selections, true);
-
-      deleteLines(vimState, editor, lineCount, direction);
-    },
-  ),
-
   // same for duplicate command
   parseKeysRegex(
     RegExp(`^q(\\d+)(${KeyMap.Motions.MoveUp}|${KeyMap.Motions.MoveDown})$`),
     /^(q|q\d+)$/,
-    [Mode.Normal, Mode.Visual],
-    (vimState, editor, match) => {
+    [Mode.Normal, Mode.Select],
+    (_vimState, editor, match) => {
       const lineCount = parseInt(match[1]);
       const direction = match[2] == KeyMap.Motions.MoveUp ? Direction.Up : Direction.Down;
       // console.log(`delete ${lineCount} lines up`);
-      editor.selections = makeMultiLineSelection(vimState, editor, lineCount, direction);
-      vscode.commands.executeCommand('editor.action.copyLinesDownAction');
+      editor.selections = makeMultiLineSelection(editor, lineCount, direction);
+      exec('editor.action.copyLinesDownAction');
     },
   ),
 
   parseKeysExact(['c', 'c'], [Mode.Normal], (vimState, editor) => {
-    editor.edit((editBuilder) => {
+    edit(editor, (editBuilder) => {
       editor.selections.forEach((selection) => {
         const line = editor.document.lineAt(selection.active.line);
         editBuilder.delete(
@@ -293,12 +280,8 @@ export const actions: Action[] = [
     removeTypeSubscription(vimState);
   }),
 
-  parseKeysExact(['C'], [Mode.Normal], (vimState, editor) => {
-    vscode.commands.executeCommand('deleteAllRight');
-    enterInsertMode(vimState);
-    setModeCursorStyle(vimState.mode, editor);
-    setRelativeLineNumbers(vimState.mode, editor);
-    removeTypeSubscription(vimState);
+  parseKeysExact(['C'], [Mode.Normal, Mode.Select], (vimState, editor) => {
+    copySelectionsToLine(editor, Direction.Down, vimState.resolveCount());
   }),
 
   parseKeysExact(['y', 'y'], [Mode.Normal], (vimState, editor) => {
@@ -315,7 +298,7 @@ export const actions: Action[] = [
     flashYankHighlight(editor, highlightRanges);
   }),
 
-  parseKeysExact(['y'], [Mode.Normal, Mode.Visual], (vimState, editor) => {
+  parseKeysExact(['y'], [Mode.Normal, Mode.Select], (vimState, editor) => {
     // Yank highlight
     const highlightRanges = editor.selections.map((selection) => selection.with());
 
@@ -323,35 +306,17 @@ export const actions: Action[] = [
     highlightRanges.every((range) => isSingleLineRange(range));
     yank(vimState, editor, highlightRanges, false);
     flashYankHighlight(editor, highlightRanges);
-    if (vimState.mode === Mode.Visual) {
+    if (vimState.mode === Mode.Select) {
       enterNormalMode(vimState);
     }
   }),
 
-  parseKeysExact(['q', 'q'], [Mode.Normal, Mode.Visual], () => {
-    vscode.commands.executeCommand('editor.action.copyLinesDownAction');
+  parseKeysExact(['Q'], [Mode.Normal, Mode.Select], (vimState) => {
+    toggleRecording(vimState);
   }),
 
-  parseKeysExact(['Q', 'Q'], [Mode.Normal, Mode.Visual], () => {
-    vscode.commands.executeCommand('editor.action.copyLinesUpAction');
-  }),
-
-  parseKeysExact(['r', 'r'], [Mode.Normal], (vimState, editor) => {
-    yankLine(vimState, editor);
-    deleteLine(vimState, editor);
-  }),
-
-  parseKeysExact(['s', 's'], [Mode.Normal], (vimState, editor) => {
-    editor.selections = editor.selections.map((selection) => {
-      return new vscode.Selection(
-        selection.active.with({ character: 0 }),
-        positionUtils.lineEnd(editor.document, selection.active),
-      );
-    });
-
-    enterVisualLineMode(vimState);
-    setModeCursorStyle(vimState.mode, editor);
-    setRelativeLineNumbers(vimState.mode, editor);
+  parseKeysExact(['q'], [Mode.Normal, Mode.Select], (vimState) => {
+    void replayMacro(vimState, vimState.resolveCount());
   }),
 
   parseKeysExact(['S'], [Mode.Normal], (vimState, editor) => {
@@ -359,16 +324,12 @@ export const actions: Action[] = [
       return new vscode.Selection(selection.active, positionUtils.lineEnd(editor.document, selection.active));
     });
 
-    enterVisualMode(vimState);
+    enterSelectMode(vimState);
     setModeCursorStyle(vimState.mode, editor);
     setRelativeLineNumbers(vimState.mode, editor);
   }),
 
-  // parseKeysExact(['h'], [Mode.Normal], (vimState, editor) => {
-  //   vscode.commands.executeCommand('deleteLeft')
-  // }),
-
-  parseKeysExact([';'], [Mode.Normal], (vimState, editor) => {
+  parseKeysExact([';'], [Mode.Normal], (_vimState, editor) => {
     const active = editor.selection.active;
     editor.selection = new vscode.Selection(active, active);
   }),
@@ -382,7 +343,6 @@ export const actions: Action[] = [
 ];
 
 function makeMultiLineSelection(
-  vimState: HelixState,
   editor: vscode.TextEditor,
   lineCount: number,
   direction: Direction,
@@ -406,12 +366,7 @@ function makeMultiLineSelection(
   });
 }
 
-function deleteLines(
-  vimState: HelixState,
-  editor: vscode.TextEditor,
-  lineCount: number,
-  direction: Direction = Direction.Down,
-): void {
+function deleteLines(editor: vscode.TextEditor, lineCount: number, direction: Direction = Direction.Down): void {
   const selections = editor.selections.map((selection) => {
     if (direction == Direction.Up) {
       const endLine = selection.active.line - lineCount;
@@ -449,21 +404,19 @@ function deleteLines(
     }
   });
 
-  editor
-    .edit((builder) => {
-      selections.forEach((sel) => builder.replace(sel, ''));
-    })
-    .then(() => {
-      editor.selections = editor.selections.map((selection) => {
-        const character = editor.document.lineAt(selection.active.line).firstNonWhitespaceCharacterIndex;
-        const newPosition = selection.active.with({ character: character });
-        return new vscode.Selection(newPosition, newPosition);
-      });
+  edit(editor, (builder) => {
+    selections.forEach((sel) => builder.replace(sel, ''));
+  }).then(() => {
+    editor.selections = editor.selections.map((selection) => {
+      const character = editor.document.lineAt(selection.active.line).firstNonWhitespaceCharacterIndex;
+      const newPosition = selection.active.with({ character: character });
+      return new vscode.Selection(newPosition, newPosition);
     });
+  });
 }
 
-function deleteLine(vimState: HelixState, editor: vscode.TextEditor, direction: Direction = Direction.Down): void {
-  deleteLines(vimState, editor, 1, direction);
+function deleteLine(_vimState: HelixState, editor: vscode.TextEditor, direction: Direction = Direction.Down): void {
+  deleteLines(editor, 1, direction);
 }
 
 function yankLine(vimState: HelixState, editor: vscode.TextEditor): void {
@@ -475,8 +428,34 @@ function yankLine(vimState: HelixState, editor: vscode.TextEditor): void {
   };
 }
 
+// Copy each selection onto the next line(s) that are long enough to hold it
+export function copySelectionsToLine(editor: vscode.TextEditor, direction: Direction, count: number): void {
+  const step = direction === Direction.Down ? 1 : -1;
+  const copies: vscode.Selection[] = [];
+
+  editor.selections.forEach(({ anchor, active }) => {
+    let found = 0;
+    for (let offset = step; found < count; offset += step) {
+      const anchorLine = anchor.line + offset;
+      const activeLine = active.line + offset;
+      if (Math.min(anchorLine, activeLine) < 0 || Math.max(anchorLine, activeLine) >= editor.document.lineCount) break;
+
+      // Skip lines too short to hold the selection at the same columns
+      if (
+        editor.document.lineAt(anchorLine).text.length >= anchor.character &&
+        editor.document.lineAt(activeLine).text.length >= active.character
+      ) {
+        copies.push(new vscode.Selection(anchorLine, anchor.character, activeLine, active.character));
+        found++;
+      }
+    }
+  });
+
+  editor.selections = [...editor.selections, ...copies];
+}
+
 export function switchToUppercase(editor: vscode.TextEditor): void {
-  editor.edit((editBuilder) => {
+  edit(editor, (editBuilder) => {
     editor.selections.forEach((selection) => {
       const text = editor.document.getText(selection);
       editBuilder.replace(selection, text.toUpperCase());
@@ -484,31 +463,24 @@ export function switchToUppercase(editor: vscode.TextEditor): void {
   });
 }
 
-export function incremenet(editor: vscode.TextEditor): void {
-  // Move the cursor to the first number and incremene the number
-  // If the cursor is not on a number, then do nothing
-  editor.edit((editBuilder) => {
-    editor.selections.forEach((selection) => {
-      const translatedSelection = selection.with(selection.start, selection.start.translate(0, 1));
-      const text = editor.document.getText(translatedSelection);
-      const number = parseInt(text, 10);
-      if (!isNaN(number)) {
-        editBuilder.replace(translatedSelection, (number + 1).toString());
+// Increment/decrement the number under each cursor, or upper/lowercase a letter
+export function incrementOrCase(editor: vscode.TextEditor, delta: 1 | -1): void {
+  edit(editor, (editBuilder) => {
+    editor.selections.forEach(({ start }) => {
+      // The whole number under the cursor, including any minus sign
+      const number = [...editor.document.lineAt(start.line).text.matchAll(/-?\d+/g)]
+        .map((match) => ({ text: match[0], from: match.index!, to: match.index! + match[0].length }))
+        .find(({ from, to }) => from <= start.character && start.character < to);
+      if (number) {
+        const range = new vscode.Range(start.line, number.from, start.line, number.to);
+        editBuilder.replace(range, (BigInt(number.text) + BigInt(delta)).toString());
+        return;
       }
-    });
-  });
-}
 
-export function decrement(editor: vscode.TextEditor): void {
-  // Move the cursor to the first number and incremene the number
-  // If the cursor is not on a number, then do nothing
-  editor.edit((editBuilder) => {
-    editor.selections.forEach((selection) => {
-      const translatedSelection = selection.with(selection.start, selection.start.translate(0, 1));
-      const text = editor.document.getText(translatedSelection);
-      const number = parseInt(text, 10);
-      if (!isNaN(number)) {
-        editBuilder.replace(translatedSelection, (number - 1).toString());
+      const range = new vscode.Range(start, start.translate(0, 1));
+      const char = editor.document.getText(range);
+      if (/\p{L}/u.test(char)) {
+        editBuilder.replace(range, delta > 0 ? char.toUpperCase() : char.toLowerCase());
       }
     });
   });

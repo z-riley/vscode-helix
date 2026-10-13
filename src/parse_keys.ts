@@ -156,7 +156,7 @@ export function parseKeysOperator(
       return ParseKeysStatus.NO;
     }
 
-    if (vimState.mode === Mode.Normal || vimState.mode === Mode.Visual) {
+    if (vimState.mode === Mode.Normal || vimState.mode === Mode.Select) {
       if (operatorResult.rest.length === 0) {
         return ParseKeysStatus.MORE_INPUT;
       }
@@ -168,9 +168,6 @@ export function parseKeysOperator(
 
       ranges = motionResult.ranges;
       linewise = motionResult.linewise;
-    } else if (vimState.mode === Mode.VisualLine) {
-      ranges = editor.selections;
-      linewise = true;
     } else {
       ranges = editor.selections;
       linewise = false;

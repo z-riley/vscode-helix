@@ -6,7 +6,6 @@ class StatusBarImpl implements vscode.Disposable {
   // Displays the current state (mode, recording macro, etc.) and messages to the user
   private readonly statusBarItem: vscode.StatusBarItem;
 
-  private previousMode: Mode | undefined = undefined;
   private showingDefaultMessage = true;
   private themeBackgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
 
@@ -38,7 +37,6 @@ class StatusBarImpl implements vscode.Disposable {
       this.statusBarItem.text = `${this.statusBarPrefix(helixState)} ${text}`;
     }
 
-    this.previousMode = helixState.mode;
     this.showingDefaultMessage = false;
     this.lastMessageTime = new Date();
   }
@@ -66,22 +64,29 @@ class StatusBarImpl implements vscode.Disposable {
   }
 
   statusBarPrefix(helixState: HelixState) {
+    const recording = helixState.macro.recording !== undefined;
+    const highlight = recording || helixState.mode === Mode.SearchPrompt || helixState.mode === Mode.SelectRegexPrompt;
+    this.statusBarItem.backgroundColor = highlight ? this.themeBackgroundColor : undefined;
+    return this.modePrefix(helixState) + (recording ? ' [@]' : '');
+  }
+
+  private modePrefix(helixState: HelixState) {
+    // Show count if numbers have been pressed
+    const countPrefix = helixState.numbersPressed.length > 0 ? helixState.numbersPressed.join('') + ' ' : '';
+
     switch (helixState.mode) {
       case Mode.Normal:
-        this.statusBarItem.backgroundColor = undefined;
-        return 'NOR';
-      case Mode.Visual:
-        return 'NOR (V)';
+        return countPrefix + 'NOR';
+      case Mode.Select:
+        return countPrefix + 'SEL';
       case Mode.Insert:
         return 'INS';
       case Mode.Disabled:
         return '-- HELIX DISABLED --';
-      case Mode.SearchInProgress:
-        this.statusBarItem.backgroundColor = this.themeBackgroundColor;
-        return 'SER:';
-      case Mode.Select:
-        this.statusBarItem.backgroundColor = this.themeBackgroundColor;
-        return 'SEL:';
+      case Mode.SearchPrompt:
+        return 'search:';
+      case Mode.SelectRegexPrompt:
+        return 'select:';
       case Mode.Window:
         return 'WIN';
       case Mode.CommandlineInProgress:

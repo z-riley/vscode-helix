@@ -1,35 +1,36 @@
-import { Selection, TextEditorRevealType, commands } from 'vscode';
+import { Selection, TextEditorRevealType } from 'vscode';
 import { Action } from '../action_types';
 import { Mode } from '../modes_types';
 import { parseKeysExact } from '../parse_keys';
+import { exec } from '../exec';
 
 export const unimparedActions: Action[] = [
   parseKeysExact([']', 'D'], [Mode.Normal], () => {
-    commands.executeCommand('editor.action.marker.next');
+    exec('editor.action.marker.next');
   }),
 
   parseKeysExact(['[', 'D'], [Mode.Normal], () => {
-    commands.executeCommand('editor.action.marker.prev');
+    exec('editor.action.marker.prev');
   }),
 
   parseKeysExact([']', 'd'], [Mode.Normal], () => {
-    commands.executeCommand('editor.action.marker.nextInFiles');
+    exec('editor.action.marker.nextInFiles');
   }),
 
   parseKeysExact(['[', 'd'], [Mode.Normal], () => {
-    commands.executeCommand('editor.action.marker.prevInFiles');
+    exec('editor.action.marker.prevInFiles');
   }),
 
   parseKeysExact(['[', 'g'], [Mode.Normal], () => {
     // There is no way to check if we're in compare editor mode or not so i need to call both commands
-    commands.executeCommand('workbench.action.compareEditor.previousChange');
-    commands.executeCommand('workbench.action.editor.previousChange');
+    exec('workbench.action.compareEditor.previousChange');
+    exec('workbench.action.editor.previousChange');
   }),
 
   parseKeysExact([']', 'g'], [Mode.Normal], () => {
     // There is no way to check if we're in compare editor mode or not so i need to call both commands
-    commands.executeCommand('workbench.action.compareEditor.nextChange');
-    commands.executeCommand('workbench.action.editor.nextChange');
+    exec('workbench.action.compareEditor.nextChange');
+    exec('workbench.action.editor.nextChange');
   }),
 
   parseKeysExact([']', 'f'], [Mode.Normal], (helixState, editor) => {

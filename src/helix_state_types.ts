@@ -1,6 +1,7 @@
 import type { Disposable, TextDocument } from 'vscode';
-import { Range, TextEditor } from 'vscode';
+import { Range, Selection, TextEditor } from 'vscode';
 import type { SymbolProvider } from './SymbolProvider';
+import type { MacroState } from './macro';
 import { CommandLine } from './commandLine';
 import type { Mode } from './modes_types';
 import { SearchState } from './search';
@@ -25,13 +26,16 @@ export type HelixState = {
   commandLine: CommandLine;
   searchState: SearchState;
   /**
-   * The current range we're searching in when calling select
+   * The selections we're searching in when calling select
    * This is better kept on the global state as it's used for multiple things
    */
-  currentSelection: Range | null;
+  currentSelections: readonly Selection[];
+  /** Set when `a` moved the cursor right on entering insert mode, so escape can move it back */
+  appendShiftedCursor: boolean;
   repeatLastMotion: (vimState: HelixState, editor: TextEditor) => void;
   lastPutRanges: {
     ranges: (Range | undefined)[];
     linewise: boolean;
   };
+  macro: MacroState;
 };

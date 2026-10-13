@@ -1,15 +1,16 @@
 import * as vscode from 'vscode';
 
 import { symbolProvider } from './SymbolProvider';
-import { decrement, incremenet, switchToUppercase } from './actions/actions';
+import { copySelectionsToLine, Direction, incrementOrCase, switchToUppercase } from './actions/actions';
 import { commandLine } from './commandLine';
 import { escapeHandler } from './escape_handler';
 import { onDidChangeActiveTextEditor, onDidChangeTextDocument } from './eventHandlers';
 import { HelixState } from './helix_state_types';
+import { cancelReplay, execKeyCommand, recordKey, registerReplayCommand, setMacroTypeHandler } from './macro';
 import {
   enterDisabledMode,
   enterNormalMode,
-  enterSearchMode,
+  enterSearchPromptMode,
   enterWindowMode,
   setModeCursorStyle,
   setRelativeLineNumbers,
@@ -43,41 +44,61 @@ const globalhelixState: HelixState = {
   },
   commandLine,
   searchState,
-  currentSelection: null,
+  currentSelections: [],
+  appendShiftedCursor: false,
   repeatLastMotion: () => undefined,
   lastPutRanges: {
     ranges: [],
     linewise: true,
   },
+  macro: {
+    recording: undefined,
+    register: undefined,
+    replaying: false,
+    cancelled: false,
+  },
 };
+
+/** Registers a command bound to a key in package.json, recording it into any macro being recorded */
+function registerKeyCommand(command: string, callback: () => unknown): vscode.Disposable {
+  registerReplayCommand(command, callback);
+  return vscode.commands.registerCommand(command, () => {
+    // Replay calls these directly, so this escape was pressed by the user
+    if (command === 'extension.helixKeymap.escapeKey' && cancelReplay(globalhelixState)) return;
+    recordKey(globalhelixState, { kind: 'command', command });
+    return callback();
+  });
+}
 
 /** This is the main entry point into the Helix VSCode extension */
 export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
-    // vscode.window.onDidChangeTextEditorSelection((e) => onSelectionChange(globalhelixState, e)),
     vscode.window.onDidChangeActiveTextEditor((editor) => onDidChangeActiveTextEditor(globalhelixState, editor)),
     vscode.workspace.onDidChangeTextDocument((e) => onDidChangeTextDocument(globalhelixState, e)),
-    vscode.commands.registerCommand('extension.helixKeymap.escapeKey', () => escapeHandler(globalhelixState)),
-    vscode.commands.registerCommand('extension.helixKeymap.scrollDownHalfPage', scrollCommands.scrollDownHalfPage),
-    vscode.commands.registerCommand('extension.helixKeymap.scrollUpHalfPage', scrollCommands.scrollUpHalfPage),
-    vscode.commands.registerCommand('extension.helixKeymap.scrollDownPage', scrollCommands.scrollDownPage),
-    vscode.commands.registerCommand('extension.helixKeymap.scrollUpPage', scrollCommands.scrollUpPage),
-    vscode.commands.registerCommand('extension.helixKeymap.enterSearchMode', () => enterSearchMode(globalhelixState)),
-    vscode.commands.registerCommand('extension.helixKeymap.exitSearchMode', () =>
+    registerKeyCommand('extension.helixKeymap.escapeKey', () => escapeHandler(globalhelixState)),
+    registerKeyCommand('extension.helixKeymap.scrollDownHalfPage', scrollCommands.scrollDownHalfPage),
+    registerKeyCommand('extension.helixKeymap.scrollUpHalfPage', scrollCommands.scrollUpHalfPage),
+    registerKeyCommand('extension.helixKeymap.scrollDownPage', scrollCommands.scrollDownPage),
+    registerKeyCommand('extension.helixKeymap.scrollUpPage', scrollCommands.scrollUpPage),
+    registerKeyCommand('extension.helixKeymap.enterSearchMode', () => enterSearchPromptMode(globalhelixState)),
+    registerKeyCommand('extension.helixKeymap.exitSearchMode', () =>
       globalhelixState.searchState.enter(globalhelixState),
     ),
-    vscode.commands.registerCommand('extension.helixKeymap.enterWindowMode', () => enterWindowMode(globalhelixState)),
-    vscode.commands.registerCommand('extension.helixKeymap.backspaceSearchMode', () => {
+    registerKeyCommand('extension.helixKeymap.enterWindowMode', () => enterWindowMode(globalhelixState)),
+    registerKeyCommand('extension.helixKeymap.backspaceSearchMode', () => {
       globalhelixState.searchState.backspace(globalhelixState);
     }),
-    vscode.commands.registerCommand('extension.helixKeymap.backspaceCommandMode', () => {
+    registerKeyCommand('extension.helixKeymap.backspaceCommandMode', () => {
       globalhelixState.commandLine.backspace(globalhelixState);
     }),
-    vscode.commands.registerCommand('extension.helixKeymap.nextSearchResult', () =>
+    registerKeyCommand('extension.helixKeymap.nextSearchResult', () =>
       globalhelixState.searchState.nextSearchResult(globalhelixState),
     ),
-    vscode.commands.registerCommand('extension.helixKeymap.previousSearchResult', () =>
+    registerKeyCommand('extension.helixKeymap.previousSearchResult', () =>
       globalhelixState.searchState.previousSearchResult(globalhelixState),
+    ),
+    vscode.commands.registerCommand('extension.helixKeymap.exec', (args: { command: string; args?: unknown }) =>
+      execKeyCommand(globalhelixState, args),
     ),
     vscode.commands.registerCommand('extension.helixKeymap.enterDisabledMode', () => {
       enterDisabledMode(globalhelixState);
@@ -88,28 +109,33 @@ export function activate(context: vscode.ExtensionContext): void {
       setRelativeLineNumbers(globalhelixState.mode, vscode.window.activeTextEditor!);
       addTypeSubscription(globalhelixState, typeHandler);
     }),
-    vscode.commands.registerCommand('extension.helixKeymap.flipSelection', () => {
+    registerKeyCommand('extension.helixKeymap.flipSelection', () => {
       flipSelection(vscode.window.activeTextEditor);
     }),
-    vscode.commands.registerCommand('extension.helixKeymap.clipboardPasteAction', () => {
-      vscode.env.clipboard.readText().then((text) => {
+    registerKeyCommand('extension.helixKeymap.clipboardPasteAction', () => {
+      return vscode.env.clipboard.readText().then((text) => {
         globalhelixState.searchState.addText(globalhelixState, text);
       });
     }),
-    vscode.commands.registerCommand('extension.helixKeymap.repeatLastMotion', () => {
+    registerKeyCommand('extension.helixKeymap.repeatLastMotion', () => {
       globalhelixState.repeatLastMotion(globalhelixState, vscode.window.activeTextEditor!);
     }),
-    vscode.commands.registerCommand('extension.helixKeymap.switchToUppercase', () => {
+    registerKeyCommand('extension.helixKeymap.switchToUppercase', () => {
       switchToUppercase(vscode.window.activeTextEditor!);
     }),
-    vscode.commands.registerCommand('extension.helixKeymap.increment', () => {
-      incremenet(vscode.window.activeTextEditor!);
+    registerKeyCommand('extension.helixKeymap.copySelectionsToPrevLine', () => {
+      copySelectionsToLine(vscode.window.activeTextEditor!, Direction.Up, globalhelixState.resolveCount());
+      globalhelixState.numbersPressed = [];
     }),
-    vscode.commands.registerCommand('extension.helixKeymap.decrement', () => {
-      decrement(vscode.window.activeTextEditor!);
+    registerKeyCommand('extension.helixKeymap.increment', () => {
+      incrementOrCase(vscode.window.activeTextEditor!, 1);
+    }),
+    registerKeyCommand('extension.helixKeymap.decrement', () => {
+      incrementOrCase(vscode.window.activeTextEditor!, -1);
     }),
   );
 
+  setMacroTypeHandler(typeHandler);
   enterNormalMode(globalhelixState);
   addTypeSubscription(globalhelixState, typeHandler);
 

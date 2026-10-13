@@ -5,8 +5,10 @@ import { HelixState } from './helix_state_types';
 import { enterNormalMode, setModeCursorStyle, setRelativeLineNumbers } from './modes';
 import { Mode } from './modes_types';
 import * as positionUtils from './position_utils';
+import { StatusBar } from './statusBar';
 import { typeHandler } from './type_handler';
 import { addTypeSubscription } from './type_subscription';
+import { exec } from './exec';
 
 export function escapeHandler(vimState: HelixState): void {
   const editor = vscode.window.activeTextEditor;
@@ -14,9 +16,11 @@ export function escapeHandler(vimState: HelixState): void {
   if (!editor) return;
 
   if (vimState.mode === Mode.Insert || vimState.mode === Mode.Occurrence) {
+    const shiftBack = vimState.mode === Mode.Insert && vimState.appendShiftedCursor;
+    vimState.appendShiftedCursor = false;
     editor.selections = editor.selections.map((selection) => {
-      return new vscode.Selection(selection.active, selection.active);
-
+      const position = shiftBack ? positionUtils.left(selection.active) : selection.active;
+      return new vscode.Selection(position, position);
     });
 
     enterNormalMode(vimState);
@@ -29,8 +33,8 @@ export function escapeHandler(vimState: HelixState): void {
       editor.selections = [editor.selections[0]];
     }
     // There is no way to check if find widget is open, so just close it
-    vscode.commands.executeCommand('closeFindWidget');
-  } else if (vimState.mode === Mode.Visual) {
+    exec('closeFindWidget');
+  } else if (vimState.mode === Mode.Select) {
     editor.selections = editor.selections.map((selection) => {
       const newPosition = new vscode.Position(selection.active.line, Math.max(selection.active.character - 1, 0));
       return new vscode.Selection(newPosition, newPosition);
@@ -39,18 +43,7 @@ export function escapeHandler(vimState: HelixState): void {
     enterNormalMode(vimState);
     setModeCursorStyle(vimState.mode, editor);
     setRelativeLineNumbers(vimState.mode, editor);
-  } else if (vimState.mode === Mode.VisualLine) {
-    editor.selections = editor.selections.map((selection) => {
-      const newPosition = selection.active.with({
-        character: Math.max(selection.active.character - 1, 0),
-      });
-      return new vscode.Selection(newPosition, newPosition);
-    });
-
-    enterNormalMode(vimState);
-    setModeCursorStyle(vimState.mode, editor);
-    setRelativeLineNumbers(vimState.mode, editor);
-  } else if (vimState.mode === Mode.SearchInProgress || vimState.mode === Mode.Select) {
+  } else if (vimState.mode === Mode.SearchPrompt || vimState.mode === Mode.SelectRegexPrompt) {
     enterNormalMode(vimState);
     vimState.searchState.clearSearchString(vimState);
     // To match Helix UI go back to the last active position on escape
@@ -70,4 +63,6 @@ export function escapeHandler(vimState: HelixState): void {
   }
 
   vimState.keysPressed = [];
+  vimState.numbersPressed = [];
+  StatusBar.clear(vimState);
 }

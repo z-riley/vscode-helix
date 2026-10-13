@@ -1,21 +1,22 @@
-import { Selection, commands, window } from 'vscode';
+import { Selection, window } from 'vscode';
 import { Action } from '../action_types';
 import { Mode } from '../modes_types';
 import { parseKeysExact } from '../parse_keys';
+import { exec } from '../exec';
 
 // https://docs.helix-editor.com/keymap.html#goto-mode
 export const gotoActions: Action[] = [
   // G actions
   parseKeysExact(['g', '.'], [Mode.Normal], () => {
-    commands.executeCommand('workbench.action.navigateToLastEditLocation');
+    exec('workbench.action.navigateToLastEditLocation');
   }),
 
   parseKeysExact(['g', 'e'], [Mode.Normal], () => {
-    commands.executeCommand('cursorBottom');
+    exec('cursorBottom');
   }),
 
-  parseKeysExact(['g', 'e'], [Mode.Visual], () => {
-    commands.executeCommand('cursorBottomSelect');
+  parseKeysExact(['g', 'e'], [Mode.Select], () => {
+    exec('cursorBottomSelect');
   }),
 
   parseKeysExact(['g', 'g'], [Mode.Normal], (helixState, editor) => {
@@ -27,10 +28,10 @@ export const gotoActions: Action[] = [
       return;
     }
 
-    commands.executeCommand('cursorTop');
+    exec('cursorTop');
   }),
 
-  parseKeysExact(['g', 'g'], [Mode.Visual], (helixState, editor) => {
+  parseKeysExact(['g', 'g'], [Mode.Select], (helixState, editor) => {
     const count = helixState.resolveCount();
     if (count !== 1) {
       const position = editor.selection.active;
@@ -43,84 +44,84 @@ export const gotoActions: Action[] = [
       return;
     }
 
-    commands.executeCommand('cursorTopSelect');
+    exec('cursorTopSelect');
   }),
 
   parseKeysExact(['g', 'h'], [Mode.Normal], () => {
-    commands.executeCommand('cursorLineStart');
+    exec('cursorLineStart');
   }),
 
-  parseKeysExact(['g', 'h'], [Mode.Visual], () => {
-    commands.executeCommand('cursorLineStartSelect');
+  parseKeysExact(['g', 'h'], [Mode.Select], () => {
+    exec('cursorLineStartSelect');
   }),
 
   parseKeysExact(['g', 'l'], [Mode.Normal], () => {
-    commands.executeCommand('cursorLineEnd');
+    exec('cursorLineEnd');
   }),
 
-  parseKeysExact(['g', 'l'], [Mode.Visual], () => {
-    commands.executeCommand('cursorLineEndSelect');
+  parseKeysExact(['g', 'l'], [Mode.Select], () => {
+    exec('cursorLineEndSelect');
   }),
 
   parseKeysExact(['g', 's'], [Mode.Normal], () => {
-    commands.executeCommand('cursorHome');
+    exec('cursorHome');
   }),
 
-  parseKeysExact(['g', 's'], [Mode.Visual], () => {
-    commands.executeCommand('cursorHomeSelect');
+  parseKeysExact(['g', 's'], [Mode.Select], () => {
+    exec('cursorHomeSelect');
   }),
 
   parseKeysExact(['g', 'd'], [Mode.Normal], () => {
-    commands.executeCommand('editor.action.revealDefinition');
+    exec('editor.action.revealDefinition');
   }),
 
   parseKeysExact(['g', 'i'], [Mode.Normal], () => {
-    commands.executeCommand('editor.action.goToImplementation');
+    exec('editor.action.goToImplementation');
   }),
 
   parseKeysExact(['g', 'y'], [Mode.Normal], () => {
-    commands.executeCommand('editor.action.goToTypeDefinition');
+    exec('editor.action.goToTypeDefinition');
   }),
 
   parseKeysExact(['g', 'r'], [Mode.Normal], () => {
-    commands.executeCommand('editor.action.goToReferences');
+    exec('editor.action.goToReferences');
   }),
 
   parseKeysExact(['g', 't'], [Mode.Normal], () => {
-    commands.executeCommand('cursorPageUp');
+    exec('cursorPageUp');
   }),
 
-  parseKeysExact(['g', 't'], [Mode.Visual], () => {
-    commands.executeCommand('cursorPageUpSelect');
+  parseKeysExact(['g', 't'], [Mode.Select], () => {
+    exec('cursorPageUpSelect');
   }),
 
   parseKeysExact(['g', 'b'], [Mode.Normal], () => {
-    commands.executeCommand('cursorPageDown');
+    exec('cursorPageDown');
   }),
 
-  parseKeysExact(['g', 'b'], [Mode.Visual], () => {
-    commands.executeCommand('cursorPageDownSelect');
+  parseKeysExact(['g', 'b'], [Mode.Select], () => {
+    exec('cursorPageDownSelect');
   }),
 
   parseKeysExact(['g', 'c'], [Mode.Normal], () => {
-    commands.executeCommand('cursorMove', {
+    exec('cursorMove', {
       to: 'viewPortCenter',
     });
   }),
 
-  parseKeysExact(['g', 'c'], [Mode.Visual], () => {
-    commands.executeCommand('cursorMove', {
+  parseKeysExact(['g', 'c'], [Mode.Select], () => {
+    exec('cursorMove', {
       to: 'viewPortCenter',
       select: true,
     });
   }),
 
   parseKeysExact(['g', 'k'], [Mode.Normal], () => {
-    commands.executeCommand('scrollLineUp');
+    exec('scrollLineUp');
   }),
 
   parseKeysExact(['g', 'j'], [Mode.Normal], () => {
-    commands.executeCommand('scrollLineDown');
+    exec('scrollLineDown');
   }),
 
   parseKeysExact(['g', 'a'], [Mode.Normal], (helixState) => {
@@ -140,10 +141,10 @@ export const gotoActions: Action[] = [
   }),
 
   parseKeysExact(['g', 'n'], [Mode.Normal], () => {
-    commands.executeCommand('workbench.action.nextEditor');
+    exec('workbench.action.nextEditor');
   }),
 
   parseKeysExact(['g', 'p'], [Mode.Normal], () => {
-    commands.executeCommand('workbench.action.previousEditor');
+    exec('workbench.action.previousEditor');
   }),
 ];
