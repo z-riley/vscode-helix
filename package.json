@@ -405,6 +405,21 @@
         "when": "!editorTextFocus && !inputFocus && !listFocus && !terminalFocus && extension.helixKeymap.normalMode"
       },
       {
+        "key": "space w q",
+        "command": "workbench.action.closeActiveEditor",
+        "when": "!editorTextFocus && !inputFocus && !listFocus && !terminalFocus && extension.helixKeymap.normalMode"
+      },
+      {
+        "key": "space w c",
+        "command": "workbench.action.closeActiveEditor",
+        "when": "!editorTextFocus && !inputFocus && !listFocus && !terminalFocus && extension.helixKeymap.normalMode"
+      },
+      {
+        "key": "space w o",
+        "command": "workbench.action.closeOtherEditors",
+        "when": "!editorTextFocus && !inputFocus && !listFocus && !terminalFocus && extension.helixKeymap.normalMode"
+      },
+      {
         "key": "backspace",
         "command": "extension.helixKeymap.exec",
         "args": {
